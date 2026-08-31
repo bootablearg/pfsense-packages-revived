@@ -199,21 +199,50 @@ The tidier fix in production is a Domain Override in the DNS Resolver
 (**Services → DNS Resolver → Domain Overrides**) pointing the AD zone at a
 domain controller, so the whole zone resolves normally.
 
+### 11. Both screens render in the web GUI
+
+**Services → Samba AD** appears in the menu, and both the Settings form and the
+Diagnostics tab render correctly in the pfSense web interface.
+
+### 12. Installation from the public repository
+
+Verified on the LAB by fetching straight from GitHub, exactly as a third party
+would:
+
+```sh
+fetch -q -o - https://raw.githubusercontent.com/bootablearg/pfsense-samba-ad/main/install.sh | sh -s check
+```
+
+The script runs identically whether executed from a clone or piped from the
+network, and the package files download complete. The files served by
+raw.githubusercontent contain 0 CR bytes, so the LF line endings enforced by
+`.gitattributes` survive publication — a CRLF in `install.sh` would make
+FreeBSD fail with "bad interpreter".
+
+### 13. The Squid installer
+
+`install-with-squid.sh` was run on the same box, with Squid installed:
+
+* `ntlm_auth` symlinked into `/usr/local/libexec/squid/`.
+* The managed block written into `custom_options_squid3` and picked up by
+  Squid's own `squid_resync()`, producing **10 `auth_param` lines** plus
+  `acl domain_users proxy_auth REQUIRED` in the generated `squid.conf`.
+* **Idempotent**: after running `install` twice, the configuration still holds
+  exactly one managed block and one `auth_param negotiate program` line. This
+  also exercises the strip logic that `remove` relies on.
+* `squid -k parse` accepts the resulting configuration.
+
+Two `ERROR` lines appear in `squid -k parse` output — `dns_v4_first is
+obsolete` and the `/var/squid/cache` cache type — but both come from the
+pfSense Squid package's own defaults, not from the managed block.
+
+Not exercised: `install-with-squid.sh remove`, because it calls the base
+installer's removal, which performs `net ads leave` and would have taken the
+test machine out of the domain.
+
 ## Open
 
-### A. Visual check of both screens
-
-`pkg_edit.php` renders the XML and `diag_samba_ad.php` is an ordinary pfSense
-page, and the service integrates correctly, but the screens have not been
-inspected in a browser. Confirm:
-
-* **Services → Samba AD** appears in the menu.
-* The Settings form renders all field groups, and the `enablefields` behaviour
-  greys out fields when *Enable* is unticked.
-* The Diagnostics tab renders, the status table is populated, and each test
-  button returns output.
-
-### B. pfSense Plus
+### A. pfSense Plus
 
 The installer detects Plus (`$g['product_name']`) but has not been run on it.
 Plus 26.07 shares its FreeBSD base commit with CE 2.9.0, so the same packages

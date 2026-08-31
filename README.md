@@ -22,11 +22,13 @@ Joined to a live Samba 4 Active Directory domain and verified end to end.
 
 | Verified | Not yet verified |
 |---|---|
-| **Domain join succeeds**: `net ads testjoin` → `Join is OK`; the machine account appears in the directory | Visual check of both screens in a browser |
-| **Trust and winbind**: `wbinfo -t` and `wbinfo -p` both succeed | pfSense Plus (the installer detects it, but it has not been run there) |
-| **Users and groups resolve** from the directory (`wbinfo -u`, `wbinfo -g`) | Squid installed and proxying with these credentials |
-| **idmap `rid` maps correctly** into the configured range (uid 10500, 11109, 11111 …) | Survival across a pfSense upgrade |
+| **Domain join succeeds**: `net ads testjoin` → `Join is OK`; the machine account appears in the directory | pfSense Plus (the installer detects it, but it has not been run there) |
+| **Trust and winbind**: `wbinfo -t` and `wbinfo -p` both succeed | Squid installed and proxying with these credentials |
+| **Users and groups resolve** from the directory (`wbinfo -u`, `wbinfo -g`) | Survival across a pfSense upgrade |
+| **idmap `rid` maps correctly** into the configured range (uid 10500, 11109, 11111 …) | |
 | **Authentication works**: `ntlm_auth --helper-protocol=squid-2.5-basic` returns `OK` — the exact path Squid uses | |
+| **Both screens render correctly** in the pfSense web GUI | |
+| **Installs from this repository** with the one-line command below, verified on a clean run | |
 | Kerberos keytab created with `HOST/` and `RestrictedKrbHost/` principals | |
 | Samba installs cleanly from the FreeBSD repo (57 packages, no upgrades or replacements of pfSense packages) | |
 | `winbindd`, `net`, `ntlm_auth`, `wbinfo` all execute; `ldd` reports no missing libraries | |
@@ -64,6 +66,23 @@ Joined to a live Samba 4 Active Directory domain and verified end to end.
 * Working DNS resolution for your AD domain, and time within five minutes of
   the domain controllers (Kerberos will refuse to authenticate otherwise).
 
+## Two installers
+
+Pick the one that matches what you want:
+
+| | `install.sh` | `install-with-squid.sh` |
+|---|---|---|
+| Joins the firewall to Active Directory | yes | yes |
+| Adds the Samba AD screens | yes | yes |
+| Installs the Squid proxy | no | yes |
+| Links `ntlm_auth` into Squid | only if Squid is already installed | yes |
+| Writes Squid's `auth_param` configuration | no — documented for you to paste | yes, into a managed block |
+
+Use `install.sh` if you only need the firewall in the domain — for example to
+authenticate VPN or GUI users against AD. Use `install-with-squid.sh` if you
+want an authenticating proxy. The second one calls the first, so you never run
+both.
+
 ## Install
 
 Run everything from the pfSense shell as root (console option 8, or over SSH).
@@ -96,13 +115,47 @@ fetch -q -o - https://raw.githubusercontent.com/bootablearg/pfsense-samba-ad/mai
 ```sh
 git clone https://github.com/bootablearg/pfsense-samba-ad.git
 cd pfsense-samba-ad
-chmod +x install.sh
+chmod +x install.sh install-with-squid.sh
 ./install.sh check
 ./install.sh install
 ```
 
 Then open **Services → Samba AD**, fill in the domain details, and tick
 *Enable* to perform the join.
+
+### With the Squid proxy
+
+Same thing, using the other script — it installs Samba AD first, then Squid,
+then wires the two together:
+
+```sh
+fetch -q -o - https://raw.githubusercontent.com/bootablearg/pfsense-samba-ad/main/install-with-squid.sh | sh -s install
+```
+
+It writes the `auth_param` directives into Squid's **Custom Options (Before
+Auth)**, between markers:
+
+```
+# BEGIN pfsense-samba-ad -- managed block, edits will be overwritten
+...
+# END pfsense-samba-ad
+```
+
+Anything you have outside those markers is preserved, and re-running replaces
+the block instead of stacking copies of it.
+
+It defines the ACL `domain_users` but **deliberately does not change your
+access rules**, because doing that silently could cut off every client on the
+network. To require authentication, reference the ACL from your own rule (for
+example in *Custom Options (After Auth)*):
+
+```
+http_access allow domain_users
+```
+
+Mind the ordering: an earlier `allow` wins. If your configuration already
+permits the client subnets unconditionally, authentication is never requested.
+Check the generated `/usr/local/etc/squid/squid.conf`.
 
 ### Options
 
