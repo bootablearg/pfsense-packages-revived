@@ -313,12 +313,28 @@ function samba_ad_write_smbconf($settings) {
 	}
 
 	/*
-	 * Note: no "password server" is emitted, even when a controller is pinned.
-	 * testparm rejects combining it with security=ADS -- it belongs to the NT4
-	 * era, and in ADS mode Samba locates the controller through Kerberos and
-	 * DNS instead. The controller is pinned in krb5.conf ([realms]) and passed
-	 * to `net` with -S, which is the supported way to do this.
+	 * Pin the controller for winbindd itself, when one was given.
+	 *
+	 * testparm warns that "password server" should not be combined with
+	 * security=ADS, and that advice is right when DNS is healthy: in ADS mode
+	 * Samba is supposed to find the controller through _ldap._tcp SRV records.
+	 *
+	 * But this option only appears when the administrator pinned a controller,
+	 * and pinning one means precisely that those SRV records are not
+	 * resolvable from the firewall. Without this line the join succeeds -- it
+	 * uses -S and the krb5.conf [realms] block -- and everything works until
+	 * the box reboots. Then winbindd starts from scratch, has no SRV records
+	 * and no NetBIOS (disabled above), and fails every lookup with
+	 * NT_STATUS_DOMAIN_CONTROLLER_NOT_FOUND while the controller sits there
+	 * perfectly reachable. Verified on a real reboot.
+	 *
+	 * So the warning is accepted deliberately: a cosmetic testparm notice is
+	 * worth less than authentication that survives a restart. When no
+	 * controller is pinned, nothing is emitted and the config stays clean.
 	 */
+	if (!empty($settings['dc'])) {
+		$lines[] = '    password server = ' . $settings['dc'];
+	}
 
 	$tail = array(
 		'',

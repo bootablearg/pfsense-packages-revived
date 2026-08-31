@@ -104,8 +104,9 @@ No warnings. Notes:
   branches get `kerberos method = secrets and keytab`. Using the old parameter
   on 4.24 makes `testparm` print a deprecation suggestion; the version check
   keeps the generated config clean either way.
-* No `password server` is emitted even when a controller is pinned: `testparm`
-  rejects combining it with `security = ADS`.
+* `password server` **is** emitted when a controller is pinned, and only then.
+  `testparm` warns about combining it with `security = ADS`; that warning is
+  accepted deliberately. See section 14.
 
 ### 6. Input validation
 
@@ -183,6 +184,49 @@ pfSense reports the package's service as its own, so it appears under
 Servicio: sambaad | rcfile: samba_ad.sh | executable: winbindd
 state according to pfSense: RUNNING
 ```
+
+### 14. Survival across a reboot, and the bug it exposed
+
+Rebooting the test firewall exposed a real defect, since fixed.
+
+**Symptom.** After the reboot the domain controller was perfectly reachable —
+ping fine, ports 88, 389 and 445 open — but every Samba lookup failed:
+
+```
+net ads testjoin  -> No logon servers are currently available
+wbinfo -t         -> NT_STATUS_DOMAIN_CONTROLLER_NOT_FOUND
+ntlm_auth         -> ERR
+```
+
+**Cause.** The pinned controller was used for the join (`-S`) and for Kerberos
+(`krb5.conf` `[realms]`), but nothing told *winbindd* where the controller was.
+While winbindd stayed up from the original join it worked; started from scratch
+after a reboot, with no resolvable SRV records and NetBIOS disabled, it had no
+way to discover the controller at all.
+
+`password server` had been left out precisely because `testparm` warns against
+combining it with `security = ADS` — correct advice when DNS is healthy, wrong
+here, since pinning a controller *means* DNS cannot be relied on.
+
+**Fix.** `password server` is emitted whenever a controller is pinned, and only
+then. The cosmetic `testparm` warning is accepted; authentication that survives
+a restart is worth more.
+
+**Verified on a real reboot** (`uptime` confirms it):
+
+```
+net ads testjoin  -> Join is OK
+wbinfo -t         -> succeeded
+ntlm_auth         -> OK
+winbindd          -> running, started on its own
+pfSense service   -> RUNNING
+squid_ad_patch    -> still applied
+```
+
+**Timing note:** winbindd takes roughly one to two minutes after boot to come
+up, because pfSense starts package services late in its sequence. Immediately
+after a reboot it will briefly report stopped. That is expected — wait before
+diagnosing.
 
 ## A note on DNS
 

@@ -31,6 +31,7 @@ Directory real y comprobado de punta a punta.
 | **Se instala desde este repositorio** con el comando de una línea que figura abajo | |
 | **Integración con Squid**: "Active Directory" aparece en el desplegable de método de autenticación, y al seleccionarlo se generan todas las directivas del helper más la ACL `password` | |
 | **El parche de Squid es reversible**: `revert` restaura ambos archivos del paquete byte por byte | |
+| **Sobrevive a un reinicio**: winbindd vuelve a arrancar solo, la membresía se mantiene y la autenticación sigue funcionando | |
 | Keytab de Kerberos con los principales `HOST/` y `RestrictedKrbHost/` | |
 | Samba se instala sin tocar ningún paquete de pfSense (57 paquetes, sin actualizaciones ni reemplazos) | |
 | El instalador es idempotente: instalar → quitar → instalar; la desinstalación deja la configuración como estaba | |

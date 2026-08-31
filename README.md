@@ -31,6 +31,7 @@ Joined to a live Samba 4 Active Directory domain and verified end to end.
 | **Installs from this repository** with the one-line command below, verified on a clean run | |
 | **Squid integration**: "Active Directory" appears in the Authentication Method dropdown, and selecting it produces the full set of helper directives plus the `password` ACL | |
 | **The Squid patch is reversible**: `revert` restores both package files byte-identically | |
+| **Survives a reboot**: winbindd restarts on its own, the domain membership holds and authentication keeps working | |
 | Kerberos keytab created with `HOST/` and `RestrictedKrbHost/` principals | |
 | Samba installs cleanly from the FreeBSD repo (57 packages, no upgrades or replacements of pfSense packages) | |
 | `winbindd`, `net`, `ntlm_auth`, `wbinfo` all execute; `ldd` reports no missing libraries | |
@@ -292,6 +293,22 @@ It lives in a temporary `REPOS_DIR` used only during install. The original
 wrote into `/usr/local/etc/pkg/repos/` and deleted it afterwards; if it died in
 between, a third-party repository stayed enabled and could override pfSense
 packages later. Here, an interrupted run leaves nothing behind.
+
+**After a reboot, give it a minute.** pfSense starts package services late in
+its boot sequence, so `winbindd` typically takes one to two minutes to come up.
+Immediately after a restart the service will briefly report stopped — that is
+expected, not a fault.
+
+**Why `password server` appears in `smb4.conf`.** When you pin a domain
+controller, that directive is written even though `testparm` warns against
+combining it with `security = ADS`. The warning is right in general — in ADS
+mode Samba should find the controller through SRV records — but pinning a
+controller means exactly that those records are not resolvable. Without the
+directive the join succeeds and everything works until the firewall reboots;
+then winbindd starts with no SRV records and no NetBIOS, and fails every lookup
+with `NT_STATUS_DOMAIN_CONTROLLER_NOT_FOUND` while the controller sits there
+perfectly reachable. If you leave the field empty, the directive is not
+written and the configuration stays clean.
 
 **Upgrades.** pfSense major upgrades replace the base system. Expect to re-run
 the installer afterwards, and to reinstall Samba for the new ABI. Netgate
