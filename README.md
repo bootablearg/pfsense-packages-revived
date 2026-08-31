@@ -23,12 +23,14 @@ Joined to a live Samba 4 Active Directory domain and verified end to end.
 | Verified | Not yet verified |
 |---|---|
 | **Domain join succeeds**: `net ads testjoin` → `Join is OK`; the machine account appears in the directory | pfSense Plus (the installer detects it, but it has not been run there) |
-| **Trust and winbind**: `wbinfo -t` and `wbinfo -p` both succeed | Squid installed and proxying with these credentials |
+| **Trust and winbind**: `wbinfo -t` and `wbinfo -p` both succeed | Real browsers authenticating through the proxy (needs an SPN-covered proxy hostname) |
 | **Users and groups resolve** from the directory (`wbinfo -u`, `wbinfo -g`) | Survival across a pfSense upgrade |
 | **idmap `rid` maps correctly** into the configured range (uid 10500, 11109, 11111 …) | |
 | **Authentication works**: `ntlm_auth --helper-protocol=squid-2.5-basic` returns `OK` — the exact path Squid uses | |
 | **Both screens render correctly** in the pfSense web GUI | |
 | **Installs from this repository** with the one-line command below, verified on a clean run | |
+| **Squid integration**: "Active Directory" appears in the Authentication Method dropdown, and selecting it produces the full set of helper directives plus the `password` ACL | |
+| **The Squid patch is reversible**: `revert` restores both package files byte-identically | |
 | Kerberos keytab created with `HOST/` and `RestrictedKrbHost/` principals | |
 | Samba installs cleanly from the FreeBSD repo (57 packages, no upgrades or replacements of pfSense packages) | |
 | `winbindd`, `net`, `ntlm_auth`, `wbinfo` all execute; `ldd` reports no missing libraries | |

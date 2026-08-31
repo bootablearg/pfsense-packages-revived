@@ -269,6 +269,10 @@ No `http_access` rule referencing the `password` ACL appears in the test box's
 allowed subnets configured; the package only emits its base rules in that
 state.
 
+Confirmed in the web GUI: **Services → Squid Proxy Server → Authentication**
+lists "Active Directory (Samba winbind SSO)" in the Authentication Method
+dropdown, and the setting saves.
+
 Not exercised end to end: a real browser authenticating through the proxy with
 Kerberos, which needs clients and an SPN-covered proxy hostname.
 

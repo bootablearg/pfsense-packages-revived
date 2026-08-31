@@ -23,12 +23,14 @@ Directory real y comprobado de punta a punta.
 | Verificado | Sin verificar todavía |
 |---|---|
 | **El join funciona**: `net ads testjoin` devuelve `Join is OK` y la cuenta de máquina aparece en el directorio | pfSense Plus (el instalador lo detecta, pero no se probó ahí) |
-| **Confianza y winbind**: `wbinfo -t` y `wbinfo -p` correctos | Squid instalado y funcionando como proxy con estas credenciales |
+| **Confianza y winbind**: `wbinfo -t` y `wbinfo -p` correctos | Navegadores reales autenticándose a través del proxy (requiere un nombre de proxy cubierto por SPN) |
 | **Usuarios y grupos del dominio se resuelven** (`wbinfo -u`, `wbinfo -g`) | Comportamiento tras una actualización de pfSense |
 | **idmap `rid` mapea correctamente** dentro del rango configurado | |
 | **La autenticación funciona**: `ntlm_auth --helper-protocol=squid-2.5-basic` devuelve `OK`, que es exactamente el camino que usa Squid | |
 | **Las dos pantallas se ven correctamente** en la interfaz web de pfSense | |
 | **Se instala desde este repositorio** con el comando de una línea que figura abajo | |
+| **Integración con Squid**: "Active Directory" aparece en el desplegable de método de autenticación, y al seleccionarlo se generan todas las directivas del helper más la ACL `password` | |
+| **El parche de Squid es reversible**: `revert` restaura ambos archivos del paquete byte por byte | |
 | Keytab de Kerberos con los principales `HOST/` y `RestrictedKrbHost/` | |
 | Samba se instala sin tocar ningún paquete de pfSense (57 paquetes, sin actualizaciones ni reemplazos) | |
 | El instalador es idempotente: instalar → quitar → instalar; la desinstalación deja la configuración como estaba | |
