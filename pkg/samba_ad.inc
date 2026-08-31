@@ -563,10 +563,33 @@ function samba_ad_stop_service() {
 	}
 }
 
+/*
+ * Start the daemons and confirm they stayed up.
+ *
+ * mwexec() reports the exit status of the rc script, which says nothing about
+ * whether winbindd survived starting: the script returns 0 as soon as it has
+ * spawned it. Polling for the process turns a silent "the service is somehow
+ * not running" into a log line naming the file to look at.
+ */
 function samba_ad_start_service() {
-	if (file_exists(SAMBA_AD_RCFILE)) {
-		mwexec(escapeshellarg(SAMBA_AD_RCFILE) . ' start');
+	if (!file_exists(SAMBA_AD_RCFILE)) {
+		log_error('Samba AD: cannot start, ' . SAMBA_AD_RCFILE . ' is missing.');
+		return false;
 	}
+
+	mwexec(escapeshellarg(SAMBA_AD_RCFILE) . ' start');
+
+	for ($i = 0; $i < 5; $i++) {
+		if (samba_ad_is_running()) {
+			return true;
+		}
+		sleep(1);
+	}
+
+	log_error('Samba AD: winbindd did not stay running after start. '
+		. 'See /var/log/samba4/log.winbindd for the reason.');
+
+	return false;
 }
 
 /*

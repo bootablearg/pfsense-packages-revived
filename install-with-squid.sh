@@ -1,7 +1,8 @@
 #!/bin/sh
 #
 # install-with-squid.sh -- Samba AD domain membership *plus* the Squid proxy,
-# wired together so Squid authenticates users against Active Directory.
+# wired together so Squid authenticates users against Active Directory with
+# single sign-on.
 #
 # Copyright (c) 2013-2016 Luiz Gustavo S. Costa <me@luizgustavo.pro.br>
 # Copyright (c) 2026 pfsense-samba-ad contributors
@@ -16,7 +17,7 @@
 # Usage, from a clone:
 #   ./install-with-squid.sh check     Report what would happen. Changes nothing.
 #   ./install-with-squid.sh install   Install everything and wire up auth.
-#   ./install-with-squid.sh remove    Remove the auth block and the AD package.
+#   ./install-with-squid.sh remove    Undo the Squid changes and the AD package.
 #   ./install-with-squid.sh status    Show current state.
 #
 # Or straight from the network:
@@ -26,17 +27,25 @@
 #
 #   * Installs pfSense-pkg-squid if it is not already present.
 #   * Symlinks Samba's ntlm_auth into Squid's helper directory.
-#   * Writes the auth_param block into Squid's "Custom Options (Before Auth)",
-#     between markers, so the block can be updated or removed later without
-#     disturbing anything else you have put there.
-#   * Regenerates squid.conf through Squid's own squid_resync().
+#   * Adds an "Active Directory (Samba winbind SSO)" entry to Squid's
+#     Authentication Method dropdown, so domain-joined browsers get single
+#     sign-on instead of a username/password prompt.
 #
-# What it deliberately does NOT do: rewrite Squid's own package files. The
-# original pf2ad patched squid.inc and squid_auth.xml with a diff guarded by a
-# hardcoded MD5 of one exact build, which broke on every Squid update. Squid is
-# also deprecated by Netgate, so anything that edits its internals is living on
-# borrowed time. Configuration through the supported custom-options field keeps
-# working across Squid updates.
+# Adding that entry means editing two files belonging to the Squid package: the
+# dropdown lives in squid_auth.xml and the directives for each method are
+# produced by a switch in squid.inc. There is no supported hook for adding a
+# method, so there is no way around it.
+#
+# The original pf2ad did the same thing with a unified diff guarded by a
+# hardcoded MD5 of one exact Squid build: any update changed the MD5, the patch
+# was skipped or misapplied, and the proxy quietly stopped authenticating.
+# pkg/squid_ad_patch.php instead locates its anchors by content, is idempotent,
+# marks what it inserted so it can be removed cleanly, keeps backups, and can
+# report whether it is currently applied.
+#
+# IMPORTANT: updating or reinstalling the Squid package restores Squid's own
+# files and removes the patch. Re-run this script afterwards. Run 'check' at any
+# time to see whether the patch is still in place.
 
 set -u
 
@@ -52,10 +61,8 @@ SQUID_HELPER_DIR="/usr/local/libexec/squid"
 SQUID_HELPER="${SQUID_HELPER_DIR}/ntlm_auth"
 SAMBA_NTLM_AUTH="/usr/local/bin/ntlm_auth"
 
-# Markers delimiting our block inside Squid's custom options. Anything outside
-# them is left untouched.
-MARK_BEGIN="# BEGIN pfsense-samba-ad -- managed block, edits will be overwritten"
-MARK_END="# END pfsense-samba-ad"
+PATCHER_NAME="squid_ad_patch.php"
+PATCHER_DEST="/usr/local/pkg/${PATCHER_NAME}"
 
 log()  { echo "==> $*"; }
 warn() { echo "WARNING: $*" >&2; }
@@ -65,21 +72,14 @@ require_root() {
 	[ "$(id -u)" = "0" ] || err "This script must be run as root."
 }
 
-squid_installed() {
-	pkg info -e "${SQUID_PKG}" 2>/dev/null
-}
+squid_installed() { pkg info -e "${SQUID_PKG}" 2>/dev/null; }
+samba_ad_installed() { [ -f /usr/local/pkg/samba_ad.inc ]; }
 
-samba_ad_installed() {
-	[ -f /usr/local/pkg/samba_ad.inc ]
-}
-
-# Run install.sh, from the same directory if present, otherwise from the repo.
+# Run install.sh, from this directory if present, otherwise from the repository.
 run_base_installer() {
 	_action="$1"
 
-	if [ -n "${SCRIPT_DIR}" ] && [ -x "${SCRIPT_DIR}/install.sh" ]; then
-		"${SCRIPT_DIR}/install.sh" "${_action}"
-	elif [ -n "${SCRIPT_DIR}" ] && [ -f "${SCRIPT_DIR}/install.sh" ]; then
+	if [ -n "${SCRIPT_DIR}" ] && [ -f "${SCRIPT_DIR}/install.sh" ]; then
 		sh "${SCRIPT_DIR}/install.sh" "${_action}"
 	else
 		log "Fetching install.sh from ${SAMBA_AD_SRC_URL}"
@@ -87,6 +87,21 @@ run_base_installer() {
 			|| err "The base installer failed. Nothing further was changed."
 	fi
 }
+
+# Put the patcher on the firewall, so it can be re-run after a Squid update
+# without needing this repository again.
+install_patcher() {
+	if [ -n "${SCRIPT_DIR}" ] && [ -f "${SCRIPT_DIR}/pkg/${PATCHER_NAME}" ]; then
+		cp -f "${SCRIPT_DIR}/pkg/${PATCHER_NAME}" "${PATCHER_DEST}"
+	else
+		fetch -q -o "${PATCHER_DEST}" "${SAMBA_AD_SRC_URL}/pkg/${PATCHER_NAME}" \
+			|| err "Could not fetch ${PATCHER_NAME}."
+	fi
+
+	chmod 0644 "${PATCHER_DEST}"
+}
+
+patcher_available() { [ -f "${PATCHER_DEST}" ]; }
 
 install_squid() {
 	if squid_installed; then
@@ -116,127 +131,8 @@ link_helper() {
 	log "Linked ntlm_auth into Squid's helper directory"
 }
 
-# Write (or refresh) the managed auth block inside Squid's custom options.
-write_auth_block() {
-	log "Writing the authentication block into Squid's custom options"
-
-	/usr/local/sbin/pfSsh.php <<'PHPEOF'
-require_once('/usr/local/pkg/squid.inc');
-
-$begin = '# BEGIN pfsense-samba-ad -- managed block, edits will be overwritten';
-$end   = '# END pfsense-samba-ad';
-
-$block = implode("\n", [
-	$begin,
-	'# Active Directory authentication via Samba winbind.',
-	'#',
-	'# Negotiate (Kerberos) is offered first and is transparent for',
-	'# domain-joined clients. NTLM is a fallback for clients that cannot do',
-	'# Kerberos; Microsoft has deprecated it and Samba disables NTLMv1, so',
-	'# prefer Negotiate where you can. Basic is a last resort and sends',
-	'# credentials in the clear unless the connection is TLS.',
-	'auth_param negotiate program /usr/local/libexec/squid/ntlm_auth --helper-protocol=gss-spnego',
-	'auth_param negotiate children 20 startup=0 idle=1',
-	'auth_param negotiate keep_alive on',
-	'',
-	'auth_param ntlm program /usr/local/libexec/squid/ntlm_auth --helper-protocol=squid-2.5-ntlmssp',
-	'auth_param ntlm children 20 startup=0 idle=1',
-	'auth_param ntlm keep_alive on',
-	'',
-	'auth_param basic program /usr/local/libexec/squid/ntlm_auth --helper-protocol=squid-2.5-basic',
-	'auth_param basic children 5 startup=0 idle=1',
-	'auth_param basic realm Proxy',
-	'auth_param basic credentialsttl 2 hours',
-	'',
-	'# Matches any successfully authenticated domain user. Reference this ACL',
-	'# from your access rules to actually require authentication.',
-	'acl domain_users proxy_auth REQUIRED',
-	$end,
-]);
-
-$cfg = function_exists('config_get_path')
-	? config_get_path('installedpackages/squid/config/0', [])
-	: ($config['installedpackages']['squid']['config'][0] ?? []);
-if (!is_array($cfg)) { $cfg = []; }
-
-$current = '';
-if (!empty($cfg['custom_options_squid3'])) {
-	$current = base64_decode($cfg['custom_options_squid3']);
-}
-
-/* Strip any previous managed block so re-running replaces rather than stacks,
- * and anything the administrator added outside the markers is preserved. */
-$pattern = '/' . preg_quote($begin, '/') . '.*?' . preg_quote($end, '/') . '\n?/s';
-$cleaned = preg_replace($pattern, '', $current);
-$cleaned = rtrim((string) $cleaned);
-
-$new = ($cleaned === '') ? $block : ($cleaned . "\n\n" . $block);
-
-$cfg['custom_options_squid3'] = base64_encode($new);
-
-if (function_exists('config_set_path')) {
-	config_set_path('installedpackages/squid/config/0', $cfg);
-} else {
-	$config['installedpackages']['squid']['config'][0] = $cfg;
-}
-
-write_config('Samba AD: add Squid AD authentication block');
-
-/* Regenerate squid.conf through Squid's own resync, the same call its GUI
- * makes on save, so the file is built exactly as the package expects. */
-if (function_exists('squid_resync')) {
-	squid_resync();
-}
-
-exec;
-exit
-PHPEOF
-}
-
-remove_auth_block() {
-	log "Removing the authentication block from Squid's custom options"
-
-	/usr/local/sbin/pfSsh.php <<'PHPEOF'
-require_once('/usr/local/pkg/squid.inc');
-
-$begin = '# BEGIN pfsense-samba-ad -- managed block, edits will be overwritten';
-$end   = '# END pfsense-samba-ad';
-
-$cfg = function_exists('config_get_path')
-	? config_get_path('installedpackages/squid/config/0', [])
-	: ($config['installedpackages']['squid']['config'][0] ?? []);
-if (!is_array($cfg) || empty($cfg['custom_options_squid3'])) {
-	exec;
-	exit;
-}
-
-$current = base64_decode($cfg['custom_options_squid3']);
-$pattern = '/' . preg_quote($begin, '/') . '.*?' . preg_quote($end, '/') . '\n?/s';
-$cleaned = rtrim((string) preg_replace($pattern, '', $current));
-
-$cfg['custom_options_squid3'] = ($cleaned === '') ? '' : base64_encode($cleaned);
-
-if (function_exists('config_set_path')) {
-	config_set_path('installedpackages/squid/config/0', $cfg);
-} else {
-	$config['installedpackages']['squid']['config'][0] = $cfg;
-}
-
-write_config('Samba AD: remove Squid AD authentication block');
-
-if (function_exists('squid_resync')) {
-	squid_resync();
-}
-
-exec;
-exit
-PHPEOF
-}
-
-verify_auth() {
-	log "Verifying the helper against the domain"
-
-	if [ ! -x "${SQUID_HELPER}" ]; then
+verify_helper() {
+	if [ ! -e "${SQUID_HELPER}" ]; then
 		warn "${SQUID_HELPER} is not present."
 		return 1
 	fi
@@ -244,15 +140,6 @@ verify_auth() {
 	if ! pgrep -x winbindd >/dev/null 2>&1; then
 		warn "winbindd is not running: join the domain from Services > Samba AD first."
 		return 1
-	fi
-
-	# Does the helper actually talk to winbind? A wrong answer here is the
-	# difference between "authentication is broken" and "the proxy is broken",
-	# which is worth knowing before users start complaining.
-	if "${SQUID_HELPER}" --diagnostics </dev/null >/dev/null 2>&1; then
-		log "ntlm_auth responds"
-	else
-		log "ntlm_auth is present; full diagnostics need credentials, so this is not conclusive"
 	fi
 
 	return 0
@@ -276,40 +163,42 @@ do_check() {
 		echo "ntlm_auth  : not linked (would be linked)"
 	fi
 
-	if squid_installed; then
-		_has=$(/usr/local/sbin/pfSsh.php <<'PHPEOF' 2>/dev/null | tail -1
-$cfg = config_get_path('installedpackages/squid/config/0', []);
-$c = !empty($cfg['custom_options_squid3']) ? base64_decode($cfg['custom_options_squid3']) : '';
-echo (strpos($c, 'BEGIN pfsense-samba-ad') !== false) ? 'yes' : 'no';
-exec;
-exit
-PHPEOF
-)
-		case "${_has}" in
-			*yes*) echo "auth block : present" ;;
-			*)     echo "auth block : absent (would be added)" ;;
-		esac
+	echo
+	echo "=== Authentication Method patch ==="
+	if patcher_available; then
+		php "${PATCHER_DEST}" status || true
+	elif [ -n "${SCRIPT_DIR}" ] && [ -f "${SCRIPT_DIR}/pkg/${PATCHER_NAME}" ]; then
+		php "${SCRIPT_DIR}/pkg/${PATCHER_NAME}" status || true
+	else
+		echo "  patcher not installed yet (would be installed)"
 	fi
 }
 
 do_install() {
 	require_root
 
-	log "Step 1/4: Samba AD"
+	log "Step 1/5: Samba AD"
 	run_base_installer install
 
 	samba_ad_installed || err "The Samba AD package did not install. Stopping before touching Squid."
 
-	log "Step 2/4: Squid"
+	log "Step 2/5: Squid"
 	install_squid
 
-	log "Step 3/4: linking the authentication helper"
+	log "Step 3/5: linking the authentication helper"
 	link_helper
 
-	log "Step 4/4: Squid authentication configuration"
-	write_auth_block
+	log "Step 4/5: installing the Authentication Method patcher"
+	install_patcher
 
-	verify_auth || true
+	log "Step 5/5: adding Active Directory to the Authentication Method dropdown"
+	if ! php "${PATCHER_DEST}" apply; then
+		warn "The dropdown patch did not apply. Squid still works, but the"
+		warn "Active Directory option will not appear. See the README for the"
+		warn "manual custom-options method."
+	fi
+
+	verify_helper || true
 
 	log "Done."
 	cat <<'EOT'
@@ -319,26 +208,30 @@ Next steps, in this order:
   1. Services > Samba AD -- fill in the domain details and enable the service
      to join the domain. Nothing below works until "Join is OK".
 
-  2. Services > Squid Proxy Server -- enable the proxy and set your interfaces
-     and port as usual.
+  2. Services > Squid Proxy Server > General -- enable the proxy and set the
+     interfaces and port as usual.
 
-  3. Decide how authentication is enforced. This script defined the ACL
+  3. Services > Squid Proxy Server > Authentication -- set
 
-         acl domain_users proxy_auth REQUIRED
+         Authentication Method = Active Directory (Samba winbind SSO)
 
-     but did NOT change your access rules, because doing so silently could cut
-     off every client on the network. Reference it from your own rule, for
-     example in Custom Options (After Auth):
+     and save. Squid then writes the negotiate/NTLM/basic helper directives
+     itself, and creates the "password" ACL its own access rules already use,
+     so no access rule has to be edited by hand.
 
-         http_access allow domain_users
+  4. For true single sign-on the browser must reach the proxy by a hostname
+     covered by a Kerberos SPN, not by IP address. With an IP, clients fall
+     back to NTLM or to a password prompt.
 
-     Note that an earlier "allow" rule wins: if your configuration already
-     permits the client subnets unconditionally, authentication will never be
-     requested. Check the generated /usr/local/etc/squid/squid.conf.
+  5. After ANY Squid package update, re-run:
 
-  4. Prefer Negotiate (Kerberos) over NTLM. Clients must reach the proxy by a
-     hostname that has a matching SPN, not by IP address, or they will silently
-     fall back to NTLM or Basic.
+         php /usr/local/pkg/squid_ad_patch.php apply
+
+     A Squid update restores Squid's own files and removes the patch. If the
+     method is still set to Active Directory at that point, Squid emits no
+     authentication directives at all. Check with:
+
+         php /usr/local/pkg/squid_ad_patch.php status
 
 EOT
 }
@@ -346,8 +239,10 @@ EOT
 do_remove() {
 	require_root
 
-	if squid_installed; then
-		remove_auth_block
+	if patcher_available; then
+		log "Reverting the Authentication Method patch"
+		php "${PATCHER_DEST}" revert || warn "Could not revert the patch cleanly."
+		rm -f "${PATCHER_DEST}"
 	fi
 
 	if [ -L "${SQUID_HELPER}" ]; then
@@ -372,6 +267,10 @@ do_status() {
 	fi
 
 	[ -L "${SQUID_HELPER}" ] && echo "ntlm_auth: linked" || echo "ntlm_auth: not linked"
+
+	if patcher_available; then
+		php "${PATCHER_DEST}" status || true
+	fi
 }
 
 case "${1:-}" in

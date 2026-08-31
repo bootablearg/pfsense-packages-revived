@@ -75,7 +75,8 @@ Elegir el que corresponda:
 | Agrega las pantallas de Samba AD | sí | sí |
 | Instala el proxy Squid | no | sí |
 | Enlaza `ntlm_auth` dentro de Squid | sólo si Squid ya está instalado | sí |
-| Escribe la configuración `auth_param` de Squid | no — queda documentada para pegar a mano | sí, en un bloque gestionado |
+| Agrega "Active Directory" al desplegable de método de autenticación de Squid | no | sí |
+| Inicio de sesión único (SSO) en navegadores del dominio | no | sí |
 
 Usar `install.sh` si sólo hace falta el firewall dentro del dominio — por
 ejemplo, para autenticar usuarios de VPN o de la GUI contra el AD. Usar
@@ -132,30 +133,50 @@ finalmente conecta ambos:
 fetch -q -o - https://raw.githubusercontent.com/bootablearg/pfsense-samba-ad/main/install-with-squid.sh | sh -s install
 ```
 
-Escribe las directivas `auth_param` en las **Custom Options (Before Auth)** de
-Squid, entre marcadores:
+Agrega una opción al desplegable **Authentication Method** del propio Squid:
 
+> *Services → Squid Proxy Server → Authentication → Authentication Method →*
+> **Active Directory (Samba winbind SSO)**
+
+Al seleccionarla y guardar, Squid escribe por su cuenta las directivas de
+Negotiate, NTLM y Basic, respetando los campos existentes de *procesos de
+autenticación*, *prompt* y *TTL*, y crea la ACL `password` que sus propias
+reglas de acceso ya referencian, de modo que **no hay que editar ninguna regla
+a mano**.
+
+Como Negotiate se ofrece primero, los navegadores de equipos unidos al dominio
+se autentican en silencio: al usuario nunca se le pide contraseña.
+
+Para que ese SSO ocurra de verdad, los clientes tienen que llegar al proxy por
+un **nombre de host cubierto por un SPN de Kerberos**, no por dirección IP.
+Contra una IP pelada, los navegadores caen a NTLM o a pedir contraseña.
+
+#### Cómo llega esa opción al desplegable, y qué implica
+
+El desplegable está fijo en `squid_auth.xml`, y las directivas de cada método
+salen de un `switch` en `squid.inc`. Squid no ofrece ningún punto de extensión
+para agregar un método, así que hay que editar esos dos archivos del paquete.
+De eso se encarga `pkg/squid_ad_patch.php`:
+
+```sh
+php /usr/local/pkg/squid_ad_patch.php status   # ¿está aplicado?
+php /usr/local/pkg/squid_ad_patch.php apply    # aplicar o reparar
+php /usr/local/pkg/squid_ad_patch.php revert   # restaurar los archivos de Squid
 ```
-# BEGIN pfsense-samba-ad -- managed block, edits will be overwritten
-...
-# END pfsense-samba-ad
-```
 
-Todo lo que esté fuera de esos marcadores se conserva, y volver a ejecutarlo
-reemplaza el bloque en lugar de acumular copias.
+Ubica sus puntos de anclaje por contenido y no por número de línea, es
+idempotente, marca lo que insertó y guarda una copia de respaldo de cada
+archivo: `revert` los restaura byte por byte.
 
-Define la ACL `domain_users` pero **deliberadamente no modifica las reglas de
-acceso**, porque hacerlo en silencio podría dejar sin salida a toda la red.
-Para exigir autenticación hay que referenciar la ACL desde una regla propia
-(por ejemplo, en *Custom Options (After Auth)*):
+**Actualizar o reinstalar el paquete Squid elimina el parche**, porque el
+paquete restaura sus propios archivos. Si eso ocurre mientras el método sigue
+configurado como Active Directory, Squid no emite ninguna directiva de
+autenticación. Conviene volver a ejecutar `apply` después de cada actualización
+de Squid, y usar `status` si en algún momento deja de pedirse autenticación.
 
-```
-http_access allow domain_users
-```
-
-Atención al orden: un `allow` anterior gana. Si la configuración ya permite las
-subredes de los clientes sin condiciones, nunca se va a pedir autenticación.
-Conviene revisar el `/usr/local/etc/squid/squid.conf` generado.
+Esta es la única parte del proyecto que toca software ajeno. El pf2ad original
+hacía lo mismo con un diff protegido por un MD5 fijo de una compilación exacta,
+y por eso se rompía en cada actualización de Squid.
 
 ### Opciones
 
@@ -218,10 +239,15 @@ La solución más prolija en producción es un *Domain Override* en el DNS
 Resolver (**Services → DNS Resolver → Domain Overrides**) que apunte la zona
 del AD a un controlador de dominio, para que la zona resuelva completa.
 
-## Opcional: autenticar Squid contra el AD
+## Alternativa manual: configurar Squid a mano
 
-Instalar Squid normalmente (**System → Package Manager**) y pegar esto en las
-*Custom Options (Before Auth)* de Squid o en `squid.conf`:
+Sirve para quien instaló con `install.sh` y no quiere que nada modifique el
+paquete Squid, o si el parche del desplegable no se aplica en alguna versión
+futura de Squid. Consigue la misma autenticación sin tocar los archivos de
+Squid.
+
+Instalar Squid normalmente (**System → Package Manager**), dejar *Authentication
+Method* en **None**, y pegar esto en las *Custom Options (Before Auth)*:
 
 ```
 # Kerberos / Negotiate -- preferido. Transparente para clientes del dominio.

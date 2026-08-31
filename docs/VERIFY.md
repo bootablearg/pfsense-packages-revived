@@ -219,26 +219,58 @@ raw.githubusercontent contain 0 CR bytes, so the LF line endings enforced by
 `.gitattributes` survive publication — a CRLF in `install.sh` would make
 FreeBSD fail with "bad interpreter".
 
-### 13. The Squid installer
+### 13. The Squid installer and the Authentication Method patch
 
-`install-with-squid.sh` was run on the same box, with Squid installed:
+`install-with-squid.sh` was run against Squid `pfSense-pkg-squid-0.5.11`.
 
-* `ntlm_auth` symlinked into `/usr/local/libexec/squid/`.
-* The managed block written into `custom_options_squid3` and picked up by
-  Squid's own `squid_resync()`, producing **10 `auth_param` lines** plus
-  `acl domain_users proxy_auth REQUIRED` in the generated `squid.conf`.
-* **Idempotent**: after running `install` twice, the configuration still holds
-  exactly one managed block and one `auth_param negotiate program` line. This
-  also exercises the strip logic that `remove` relies on.
-* `squid -k parse` accepts the resulting configuration.
+The patch adds one dropdown option and one `switch` case. The Squid package
+already accepts `ntlm` as a method everywhere else — `squid.inc:845`,
+`squid_auth.xml:286` and `squid_js.inc:38` all match
+`(local|ldap|radius|ntlm)` — which is why the value must stay `ntlm` and why
+the insertion can be this small.
 
-Two `ERROR` lines appear in `squid -k parse` output — `dns_v4_first is
-obsolete` and the `/var/squid/cache` cache type — but both come from the
-pfSense Squid package's own defaults, not from the managed block.
+After `apply`:
 
-Not exercised: `install-with-squid.sh remove`, because it calls the base
-installer's removal, which performs `net ads leave` and would have taken the
-test machine out of the domain.
+* `php -l /usr/local/pkg/squid.inc` — still valid PHP.
+* `parse_xml_config_pkg()` reads the patched `squid_auth.xml` — 21 fields.
+* The option appears in the dropdown, wrapped in its markers.
+
+Selecting it and saving produces, in `squid.conf`:
+
+```
+auth_param negotiate program /usr/local/libexec/squid/ntlm_auth --helper-protocol=gss-spnego
+auth_param negotiate children 15
+auth_param negotiate keep_alive on
+auth_param ntlm program /usr/local/libexec/squid/ntlm_auth --helper-protocol=squid-2.5-ntlmssp
+auth_param ntlm children 15
+auth_param ntlm keep_alive on
+auth_param basic program /usr/local/libexec/squid/ntlm_auth --helper-protocol=squid-2.5-basic
+auth_param basic children 15
+auth_param basic realm Proxy corporativo
+auth_param basic credentialsttl 5 minutes
+acl password proxy_auth REQUIRED
+```
+
+The GUI's own *Authentication processes* (set to 15) and *prompt* fields are
+honoured, and the `password` ACL — which the package's access rules already
+reference — is created by the package itself. `squid -k parse` accepts the
+result.
+
+* **Idempotent**: applying twice leaves exactly one marked block in each file.
+* **Reversible**: after `revert`, `diff` reports both files byte-identical to
+  the backups taken before patching, and `squid.inc` still lints clean.
+
+Two `ERROR` lines in `squid -k parse` output — `dns_v4_first is obsolete` and
+the `/var/squid/cache` cache type — come from the pfSense Squid package's own
+defaults, not from this patch.
+
+No `http_access` rule referencing the `password` ACL appears in the test box's
+`squid.conf` because Squid itself is disabled there, with no interfaces or
+allowed subnets configured; the package only emits its base rules in that
+state.
+
+Not exercised end to end: a real browser authenticating through the proxy with
+Kerberos, which needs clients and an SPN-covered proxy hostname.
 
 ## Open
 

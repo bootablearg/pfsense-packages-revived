@@ -76,7 +76,8 @@ Pick the one that matches what you want:
 | Adds the Samba AD screens | yes | yes |
 | Installs the Squid proxy | no | yes |
 | Links `ntlm_auth` into Squid | only if Squid is already installed | yes |
-| Writes Squid's `auth_param` configuration | no — documented for you to paste | yes, into a managed block |
+| Adds "Active Directory" to Squid's Authentication Method dropdown | no | yes |
+| Single sign-on for domain-joined browsers | no | yes |
 
 Use `install.sh` if you only need the firewall in the domain — for example to
 authenticate VPN or GUI users against AD. Use `install-with-squid.sh` if you
@@ -132,30 +133,48 @@ then wires the two together:
 fetch -q -o - https://raw.githubusercontent.com/bootablearg/pfsense-samba-ad/main/install-with-squid.sh | sh -s install
 ```
 
-It writes the `auth_param` directives into Squid's **Custom Options (Before
-Auth)**, between markers:
+It adds an entry to Squid's own **Authentication Method** dropdown:
 
+> *Services → Squid Proxy Server → Authentication → Authentication Method →*
+> **Active Directory (Samba winbind SSO)**
+
+Select it and save. Squid then writes the Negotiate, NTLM and Basic helper
+directives itself, honouring the existing *Authentication processes*, *prompt*
+and *TTL* fields, and creates the `password` ACL that its own access rules
+already reference — so **no access rule has to be edited by hand**.
+
+With Negotiate offered first, domain-joined browsers authenticate silently:
+users are never prompted for a password.
+
+For that single sign-on to actually happen, clients must reach the proxy by a
+**hostname covered by a Kerberos SPN**, not by IP address. Against a bare IP,
+browsers fall back to NTLM or to a password prompt.
+
+#### How the dropdown entry gets there, and what that costs you
+
+The dropdown is hardcoded in `squid_auth.xml`, and each method's directives
+come from a `switch` in `squid.inc`. Squid offers no hook for adding a method,
+so those two package files have to be edited. `pkg/squid_ad_patch.php` does it:
+
+```sh
+php /usr/local/pkg/squid_ad_patch.php status   # is it applied?
+php /usr/local/pkg/squid_ad_patch.php apply    # apply or repair
+php /usr/local/pkg/squid_ad_patch.php revert   # restore Squid's files
 ```
-# BEGIN pfsense-samba-ad -- managed block, edits will be overwritten
-...
-# END pfsense-samba-ad
-```
 
-Anything you have outside those markers is preserved, and re-running replaces
-the block instead of stacking copies of it.
+It finds its anchors by content rather than by line number, is idempotent,
+marks what it inserted, and keeps a backup of each file — `revert` restores
+them byte for byte.
 
-It defines the ACL `domain_users` but **deliberately does not change your
-access rules**, because doing that silently could cut off every client on the
-network. To require authentication, reference the ACL from your own rule (for
-example in *Custom Options (After Auth)*):
+**Updating or reinstalling the Squid package removes the patch**, because the
+package restores its own files. If that happens while the method is still set
+to Active Directory, Squid emits no authentication directives at all. Re-run
+`apply` after any Squid update, and use `status` if authentication ever stops
+being requested.
 
-```
-http_access allow domain_users
-```
-
-Mind the ordering: an earlier `allow` wins. If your configuration already
-permits the client subnets unconditionally, authentication is never requested.
-Check the generated `/usr/local/etc/squid/squid.conf`.
+This is the one part of the project that touches software it does not own. The
+original pf2ad did the same with a unified diff guarded by a hardcoded MD5 of
+one exact build — which is precisely why it broke on every Squid update.
 
 ### Options
 
@@ -206,10 +225,15 @@ failure the original invited by defaulting to `ad`. `rid` derives IDs
 algorithmically and works against a stock Active Directory. Only choose `ad` if
 you know your directory carries POSIX attributes.
 
-## Optional: authenticating Squid against AD
+## Manual alternative: wiring Squid by hand
 
-Install Squid normally (**System → Package Manager**), then paste this into
-Squid's *Custom Options (Before Auth)* or `squid.conf`:
+Use this if you installed with `install.sh` and do not want anything editing
+the Squid package, or if the dropdown patch fails to apply on a future Squid
+release. It achieves the same authentication without touching Squid's files.
+
+Install Squid normally (**System → Package Manager**), leave *Authentication
+Method* as **None**, and paste this into Squid's *Custom Options (Before
+Auth)*:
 
 ```
 # Kerberos / Negotiate -- preferred. Transparent for domain-joined clients.
@@ -231,6 +255,13 @@ auth_param basic credentialsttl 2 hours
 acl domain_users proxy_auth REQUIRED
 http_access allow domain_users
 ```
+
+Mind the ordering of access rules: an earlier `allow` wins. If your
+configuration already permits the client subnets unconditionally,
+authentication is never requested no matter how correct the `auth_param` lines
+are — check the generated `/usr/local/etc/squid/squid.conf`. This is the main
+reason the dropdown method is easier: there, Squid builds its access rules
+around its own `password` ACL for you.
 
 `/usr/local/libexec/squid/ntlm_auth` is a **symlink** to Samba's binary, created
 by this package. The original copied the file instead, which went stale on
