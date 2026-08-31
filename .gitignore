@@ -13,7 +13,21 @@ Thumbs.db
 *.log
 /tmp/
 
-# Never commit these: they would carry site-specific data or credentials
+# Never commit these: site-specific data or credentials
 smb4.conf
 krb5.conf
 *.keytab
+credentials*
+*.pem
+*.key
+
+# Vendor originals used as reference. Several of these embed per-install
+# license keys belonging to other people -- they must never reach a public
+# repository. Keep reference material outside the working tree entirely;
+# this is only a second line of defence.
+pf2ad*.sh
+*-reference/
+_referencia*/
+
+# Large reference documents
+*.pdf

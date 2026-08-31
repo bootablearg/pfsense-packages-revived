@@ -7,7 +7,7 @@
  * Samba's winbind -- giving domain-joined browsers single sign-on instead of a
  * username/password prompt.
  *
- * Copyright (c) 2026 pfsense-samba-ad contributors
+ * Copyright (c) 2026 pfsense-packages-revived contributors
  * All rights reserved. BSD 2-Clause -- see LICENSE.
  *
  * Usage:  php squid_ad_patch.php {apply|revert|status}

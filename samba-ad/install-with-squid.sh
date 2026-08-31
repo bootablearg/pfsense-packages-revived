@@ -5,7 +5,7 @@
 # single sign-on.
 #
 # Copyright (c) 2013-2016 Luiz Gustavo S. Costa <me@luizgustavo.pro.br>
-# Copyright (c) 2026 pfsense-samba-ad contributors
+# Copyright (c) 2026 pfsense-packages-revived contributors
 # All rights reserved.
 #
 # Derived from the pf2ad project (BSD 2-Clause), branch 2.4.3-SAMBA4.
@@ -21,7 +21,7 @@
 #   ./install-with-squid.sh status    Show current state.
 #
 # Or straight from the network:
-#   fetch -q -o - https://raw.githubusercontent.com/bootablearg/pfsense-samba-ad/main/install-with-squid.sh | sh -s install
+#   fetch -q -o - https://raw.githubusercontent.com/bootablearg/pfsense-packages-revived/main/samba-ad/install-with-squid.sh | sh -s install
 #
 # What it adds on top of install.sh:
 #
@@ -54,7 +54,7 @@ case "$0" in
 	*/*) SCRIPT_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd || true)" ;;
 esac
 
-SAMBA_AD_SRC_URL="${SAMBA_AD_SRC_URL:-https://raw.githubusercontent.com/bootablearg/pfsense-samba-ad/main}"
+SAMBA_AD_SRC_URL="${SAMBA_AD_SRC_URL:-https://raw.githubusercontent.com/bootablearg/pfsense-packages-revived/main/samba-ad}"
 
 SQUID_PKG="pfSense-pkg-squid"
 SQUID_HELPER_DIR="/usr/local/libexec/squid"

@@ -254,7 +254,7 @@ Verified on the LAB by fetching straight from GitHub, exactly as a third party
 would:
 
 ```sh
-fetch -q -o - https://raw.githubusercontent.com/bootablearg/pfsense-samba-ad/main/install.sh | sh -s check
+fetch -q -o - https://raw.githubusercontent.com/bootablearg/pfsense-packages-revived/main/samba-ad/install.sh | sh -s check
 ```
 
 The script runs identically whether executed from a clone or piped from the

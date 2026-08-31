@@ -3,7 +3,7 @@
 # install.sh -- installer for the pfSense "Samba AD" package.
 #
 # Copyright (c) 2013-2016 Luiz Gustavo S. Costa <me@luizgustavo.pro.br>
-# Copyright (c) 2026 pfsense-samba-ad contributors
+# Copyright (c) 2026 pfsense-packages-revived contributors
 # All rights reserved.
 #
 # Derived from the pf2ad project (BSD 2-Clause), branch 2.4.3-SAMBA4.
@@ -16,8 +16,8 @@
 #   ./install.sh status    Show current state.
 #
 # Or straight from the network, without cloning:
-#   fetch -q -o - https://raw.githubusercontent.com/bootablearg/pfsense-samba-ad/main/install.sh | sh -s check
-#   fetch -q -o - https://raw.githubusercontent.com/bootablearg/pfsense-samba-ad/main/install.sh | sh -s install
+#   fetch -q -o - https://raw.githubusercontent.com/bootablearg/pfsense-packages-revived/main/samba-ad/install.sh | sh -s check
+#   fetch -q -o - https://raw.githubusercontent.com/bootablearg/pfsense-packages-revived/main/samba-ad/install.sh | sh -s install
 #
 # How this differs from the script it replaces:
 #
@@ -59,7 +59,7 @@ SAMBA_PKG="${SAMBA_PKG:-}"
 
 # Where package files are fetched from when they are not present locally.
 # Override to install from your own fork or branch.
-SAMBA_AD_SRC_URL="${SAMBA_AD_SRC_URL:-https://raw.githubusercontent.com/bootablearg/pfsense-samba-ad/main}"
+SAMBA_AD_SRC_URL="${SAMBA_AD_SRC_URL:-https://raw.githubusercontent.com/bootablearg/pfsense-packages-revived/main/samba-ad}"
 
 # Official FreeBSD repository. ${ABI} is expanded by pkg itself, not by the
 # shell, which is why it is written literally here.

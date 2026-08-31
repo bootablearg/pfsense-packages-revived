@@ -7,7 +7,7 @@
  * resolved locally (and, optionally, used by Squid's ntlm_auth helper).
  *
  * Copyright (c) 2013-2016 Luiz Gustavo S. Costa <me@luizgustavo.pro.br>
- * Copyright (c) 2026 pfsense-samba-ad contributors
+ * Copyright (c) 2026 pfsense-packages-revived contributors
  * All rights reserved.
  *
  * Derived from the pf2ad project (BSD 2-Clause), branch 2.4.3-SAMBA4.
