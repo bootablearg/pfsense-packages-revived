@@ -1,0 +1,19 @@
+# Editor and OS noise
+*.swp
+*~
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Backups and local scratch
+*.bak
+*.orig
+*.rej
+*.log
+/tmp/
+
+# Never commit these: they would carry site-specific data or credentials
+smb4.conf
+krb5.conf
+*.keytab

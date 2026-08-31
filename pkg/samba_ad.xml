@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE packagegui SYSTEM "../schema/packages.dtd">
+<?xml-stylesheet type="text/xsl" href="../xsl/package.xsl"?>
+<packagegui>
+	<copyright>
+	<![CDATA[
+/*
+ * samba_ad.xml
+ *
+ * Copyright (c) 2013-2016 Luiz Gustavo S. Costa <me@luizgustavo.pro.br>
+ * Copyright (c) 2026 pfsense-samba-ad contributors
+ * All rights reserved.
+ *
+ * Derived from the pf2ad project (BSD 2-Clause), branch 2.4.3-SAMBA4.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES ARE
+ * DISCLAIMED. See the LICENSE file for the full text.
+ */
+	]]>
+	</copyright>
+	<description>Joins pfSense to an Active Directory domain using Samba winbind.</description>
+	<requirements>Samba 4.x with winbind, built for the running pfSense release.</requirements>
+	<faq>See the project README for Squid integration and troubleshooting.</faq>
+	<name>sambaad</name>
+	<version>1.0.0</version>
+	<title>Samba AD: Domain Membership</title>
+	<include_file>/usr/local/pkg/samba_ad.inc</include_file>
+
+	<tabs>
+		<tab>
+			<text>Settings</text>
+			<url>/pkg_edit.php?xml=samba_ad.xml&amp;id=0</url>
+			<active/>
+		</tab>
+		<tab>
+			<text>Diagnostics</text>
+			<url>/diag_samba_ad.php</url>
+		</tab>
+	</tabs>
+
+	<fields>
+		<field>
+			<fielddescr>Enable</fielddescr>
+			<fieldname>enable</fieldname>
+			<description>Join the domain and run winbindd. Unchecking stops the daemons but keeps the domain membership, so re-enabling does not require another join.</description>
+			<type>checkbox</type>
+			<enablefields>interface,realm,workgroup,dc,username,password,idmap_backend,idmap_domain_low,idmap_domain_high,idmap_default_low,idmap_default_high,enable_smbd,log_level,custom_options</enablefields>
+		</field>
+
+		<field>
+			<fielddescr>Listen interface(s)</fielddescr>
+			<fieldname>interface</fieldname>
+			<description>Interfaces winbindd binds to. Loopback is always added automatically because ntlm_auth and wbinfo need it. Select the interface that reaches your domain controllers.</description>
+			<type>interfaces_selection</type>
+			<default_value>lan</default_value>
+			<multiple/>
+		</field>
+
+		<field>
+			<name>Domain</name>
+			<type>listtopic</type>
+		</field>
+
+		<field>
+			<fielddescr>Domain / Realm</fielddescr>
+			<fieldname>realm</fieldname>
+			<description>Full DNS name of the Active Directory domain, for example: example.local</description>
+			<type>input</type>
+			<size>60</size>
+		</field>
+
+		<field>
+			<fielddescr>Workgroup (NetBIOS name)</fielddescr>
+			<fieldname>workgroup</fieldname>
+			<description>Short NetBIOS domain name, for example: EXAMPLE</description>
+			<type>input</type>
+			<size>30</size>
+		</field>
+
+		<field>
+			<fielddescr>Domain controller (optional)</fielddescr>
+			<fieldname>dc</fieldname>
+			<description>IP address or FQDN of a domain controller. Leave empty to discover it through DNS SRV records (_kerberos._tcp, _ldap._tcp). Fill it in when the firewall's resolver does not serve the AD zone -- a common case where the domain name resolves but its SRV records do not. When set, the KDC is pinned in krb5.conf and used for the join.</description>
+			<type>input</type>
+			<size>40</size>
+		</field>
+
+		<field>
+			<fielddescr>Join Username</fielddescr>
+			<fieldname>username</fieldname>
+			<description>An account permitted to join computers to the domain. Used only for the join and for creating the Kerberos keytab.</description>
+			<type>input</type>
+			<size>40</size>
+			<default_value>Administrator</default_value>
+		</field>
+
+		<field>
+			<fielddescr>Join Password</fielddescr>
+			<fieldname>password</fieldname>
+			<description>Password for the account above. Stored in config.xml; use a dedicated delegated account rather than Domain Admin where possible.</description>
+			<type>password</type>
+			<size>40</size>
+		</field>
+
+		<field>
+			<name>ID Mapping</name>
+			<type>listtopic</type>
+		</field>
+
+		<field>
+			<fielddescr>idmap backend</fielddescr>
+			<fieldname>idmap_backend</fieldname>
+			<description>rid (recommended) derives Unix IDs algorithmically and works against a stock Active Directory. ad requires uidNumber/gidNumber attributes to be populated in the directory (RFC2307); if they are not, no user will map at all.</description>
+			<type>select</type>
+			<options>
+				<option><name>rid (recommended)</name><value>rid</value></option>
+				<option><name>ad (requires RFC2307 attributes)</name><value>ad</value></option>
+			</options>
+			<default_value>rid</default_value>
+		</field>
+
+		<field>
+			<fielddescr>Domain range start</fielddescr>
+			<fieldname>idmap_domain_low</fieldname>
+			<description>Lowest Unix ID assigned to domain users and groups.</description>
+			<type>input</type>
+			<size>10</size>
+			<default_value>10000</default_value>
+		</field>
+
+		<field>
+			<fielddescr>Domain range end</fielddescr>
+			<fieldname>idmap_domain_high</fieldname>
+			<description>Highest Unix ID assigned to domain users and groups.</description>
+			<type>input</type>
+			<size>10</size>
+			<default_value>69999</default_value>
+		</field>
+
+		<field>
+			<fielddescr>Default range start</fielddescr>
+			<fieldname>idmap_default_low</fieldname>
+			<description>Range for everything outside the joined domain. Must not overlap the domain range.</description>
+			<type>input</type>
+			<size>10</size>
+			<default_value>70001</default_value>
+		</field>
+
+		<field>
+			<fielddescr>Default range end</fielddescr>
+			<fieldname>idmap_default_high</fieldname>
+			<description>Upper bound of the default range.</description>
+			<type>input</type>
+			<size>10</size>
+			<default_value>80000</default_value>
+		</field>
+
+		<field>
+			<name>Advanced</name>
+			<type>listtopic</type>
+		</field>
+
+		<field>
+			<fielddescr>Also run smbd/nmbd</fielddescr>
+			<fieldname>enable_smbd</fieldname>
+			<description>Only needed if this firewall should serve SMB file shares. Domain authentication needs winbindd alone, so leave this off unless you know you want a file server on your firewall.</description>
+			<type>checkbox</type>
+		</field>
+
+		<field>
+			<fielddescr>Log level</fielddescr>
+			<fieldname>log_level</fieldname>
+			<description>Samba log verbosity (0-10). Use 1 normally; raise to 3 or above only while troubleshooting, as high levels are very noisy.</description>
+			<type>input</type>
+			<size>5</size>
+			<default_value>1</default_value>
+		</field>
+
+		<field>
+			<fielddescr>Custom smb.conf options</fielddescr>
+			<fieldname>custom_options</fieldname>
+			<description>Extra lines appended to the [global] section, one per line. Applied verbatim.</description>
+			<type>textarea</type>
+			<cols>70</cols>
+			<rows>6</rows>
+			<encoding>base64</encoding>
+		</field>
+	</fields>
+
+	<custom_php_validation_command>
+		samba_ad_validate_form($_POST, $input_errors);
+	</custom_php_validation_command>
+
+	<custom_php_resync_config_command>
+		samba_ad_sync();
+	</custom_php_resync_config_command>
+
+	<custom_php_install_command>
+		samba_ad_install();
+	</custom_php_install_command>
+
+	<custom_php_deinstall_command>
+		samba_ad_deinstall();
+	</custom_php_deinstall_command>
+</packagegui>
