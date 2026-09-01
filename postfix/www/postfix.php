@@ -743,8 +743,10 @@ if ($_REQUEST['files']!= ""){
 		//to see examples, and select datatable modules to download see
 		// https://datatables.net/download/
 		?>
-		<script src="/vendor/jquery/jquery-1.12.0.min.js" type="text/javascript"></script>
-		<script src="/vendor/bootstrap/js/bootstrap.min.js" type="text/javascript"></script>
+<!-- jQuery and Bootstrap are already loaded by pfSense's own page head.
+     Loading them again here re-registered Bootstrap's plugins and left the
+     navbar dropdowns dead, and the jQuery it asked for (1.12.0) has not
+     shipped with pfSense for years, so that request was a plain 404. -->
 		<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/v/dt/jszip-2.5.0/dt-1.10.18/b-1.5.6/b-html5-1.5.6/b-print-1.5.6/datatables.min.css"/>
 
 		<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.36/pdfmake.min.js"></script>
