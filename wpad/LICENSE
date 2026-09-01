@@ -1,0 +1,38 @@
+Copyright (c) 2017-2025 Marcello Coutinho
+Copyright (c) 2026 pfsense-packages-revived contributors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+---
+
+NOTICE
+
+This work is a derivative of the "wpad" package for pfSense software by
+Marcello Coutinho, distributed as part of Unofficial-pfSense-packages:
+
+    https://github.com/marcelloc/Unofficial-pfSense-packages
+
+The original is Apache-2.0 licensed and its copyright notice is retained above,
+as Section 4 of the License requires.
+
+As required by Section 4(b) of the License, the following changes were made to
+the original files:
+
+  * wpad_nginx.template: fixed the server block. Two consecutive lines lacked
+    their terminating semicolon and the second was not a directive at all, so
+    nginx parsed all of it -- including client_max_body_size -- as a single
+    server_name with six arguments.
+
+  * Packaging: the package is built and installed as a real pfSense-pkg-WPAD
+    rather than by copying files into place, so that it appears in and can be
+    removed from System > Package Manager. See docs/PACKAGING.md.

@@ -64,6 +64,14 @@
 # Packaging: this builds a real pfSense-pkg-* package and installs it from a
 # temporary local repository, so it appears under System > Package Manager and
 # the trash icon removes it -- files, menu entries, service and all. See
+# ../docs/PACKAGING.md for why that indirection is necessary.#
+# Packaging: this builds a real pfSense-pkg-* package and installs it from a
+# temporary local repository, so it appears under System > Package Manager and
+# the trash icon removes it -- files, menu entries, service and all. See
+# ../docs/PACKAGING.md for why that indirection is necessary.#
+# Packaging: this builds a real pfSense-pkg-* package and installs it from a
+# temporary local repository, so it appears under System > Package Manager and
+# the trash icon removes it -- files, menu entries, service and all. See
 # ../docs/PACKAGING.md for why that indirection is necessary.
 
 set -u
@@ -86,6 +94,10 @@ SRC_DIRNAME="sarg"
 # repository, then recorded as dependencies of our package so that removing
 # ours takes them with it.
 BIN_DEPS="sarg"
+
+# "no" for a package that needs nothing beyond what pfSense already ships, so
+# an empty BIN_DEPS is a fact rather than a failed lookup.
+DEPS_REQUIRED="yes"
 
 # Names this package used in earlier versions of this repository. Their stale
 # config.xml entries are purged on install so the Package Manager does not end
@@ -331,7 +343,10 @@ write_manifest() {
 		echo "www: \"https://github.com/bootablearg/pfsense-packages-revived\""
 		echo "prefix: /usr/local"
 		echo "categories: [ ${PKG_CATEGORY} ]"
-		echo "licenselogic: single"
+		case "${PKG_LICENSE}" in
+			*,*) echo "licenselogic: multi" ;;
+			*)   echo "licenselogic: single" ;;
+		esac
 		echo "licenses: [ ${PKG_LICENSE} ]"
 		manifest_deps
 		echo "scripts: {"
@@ -434,7 +449,9 @@ cmd_check() {
 	echo
 	prepare_repos
 	BIN_DEPS="$(resolve_bin_deps)"
-	[ -n "${BIN_DEPS}" ] || err "No suitable dependency package is available for ABI $(pkg config abi 2>/dev/null)."
+	if [ "${DEPS_REQUIRED}" = "yes" ] && [ -z "${BIN_DEPS}" ]; then
+		err "No suitable dependency package is available for ABI $(pkg config abi 2>/dev/null)."
+	fi
 	_missing="$(deps_missing)"
 	if [ -z "${_missing}" ]; then
 		echo "Dependencies: all present (${BIN_DEPS})"
@@ -459,7 +476,9 @@ cmd_install() {
 
 	prepare_repos
 	BIN_DEPS="$(resolve_bin_deps)"
-	[ -n "${BIN_DEPS}" ] || err "No suitable dependency package is available for ABI $(pkg config abi 2>/dev/null)."
+	if [ "${DEPS_REQUIRED}" = "yes" ] && [ -z "${BIN_DEPS}" ]; then
+		err "No suitable dependency package is available for ABI $(pkg config abi 2>/dev/null)."
+	fi
 	install_deps
 
 	stage_files

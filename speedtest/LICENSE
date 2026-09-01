@@ -1,0 +1,76 @@
+Copyright (c) 2019 Marcello Coutinho
+Copyright (c) 2015 ESF, LLC
+Copyright (c) 2004-2018 Rubicon Communications, LLC (Netgate)
+Copyright (c) 2003-2005 Bob Zoller (bob@kludgebox.com)
+Copyright (c) 2003-2004 Manuel Kasper <mk@neon1.net>
+Copyright (c) 2026 pfsense-packages-revived contributors
+
+This package combines files under two licenses, both retained here.
+
+---
+
+diag_speedtest.php and speedtest.priv.inc are licensed under the Apache
+License, Version 2.0 (the "License"); you may not use those files except in
+compliance with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+---
+
+speedtest.xml is licensed under the BSD 2-Clause License:
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice,
+   this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+---
+
+NOTICE
+
+This work derives from the "speedtest" package for pfSense software by Marcello
+Coutinho, distributed as part of Unofficial-pfSense-packages:
+
+    https://github.com/marcelloc/Unofficial-pfSense-packages
+
+As required by Section 4(b) of the Apache License, the following changes were
+made to the Apache-licensed files:
+
+  * diag_speedtest.php: the measurement is now displayed locally. The original
+    passed --share unconditionally and rendered the result as nothing but the
+    image Ookla returns, so a speed test could not be run without publishing
+    it. Sharing is now a checkbox that defaults to off, the download, upload,
+    latency, server and ISP are read out of the JSON and shown in a table, and
+    the shared URL -- when there is one -- is validated and escaped rather than
+    interpolated straight into an <img src>.
+
+  * diag_speedtest.php: the variables backing the form are initialised, which
+    silences a set of undefined-variable warnings on every page load under
+    PHP 8.
+
+  * Packaging: the package is built and installed as a real
+    pfSense-pkg-SpeedTest rather than by copying files into place, so that it
+    appears in and can be removed from System > Package Manager. See
+    docs/PACKAGING.md.

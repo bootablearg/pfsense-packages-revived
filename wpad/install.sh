@@ -1,69 +1,31 @@
 #!/bin/sh
 #
-# install.sh -- installer for the pfSense "SquidAnalyzer" package.
+# install.sh -- installer for the pfSense "WPAD" package.
 #
-# Copyright (c) 2016 Luiz Gustavo <me@luizgustavo.pro.br>
-# Copyright (c) 2017 Marcello Coutinho
+# Copyright (c) 2017-2025 Marcello Coutinho
 # Copyright (c) 2026 pfsense-packages-revived contributors
 #
 # Licensed under the Apache License, Version 2.0. See LICENSE.
 #
-# SquidAnalyzer turns Squid's access log into per-user reports. With the proxy
-# authenticating against Active Directory (see ../samba-ad/), those reports are
-# keyed by domain username rather than by IP -- which, on a DHCP network, is
-# the difference between a report you can act on and one you cannot.
+# Derived from the wpad package in
+# https://github.com/marcelloc/Unofficial-pfSense-packages (pkg-wpad),
+# ported to pfSense 2.9 / PHP 8.5.
+#
+# WPAD is the piece that makes a proxy deployable. Without it every browser on
+# the network has to be pointed at the proxy by hand; with it they discover the
+# proxy themselves, through DHCP option 252 or a "wpad" DNS record, and fetch a
+# PAC file served from here. Combined with ../samba-ad/ for Kerberos single
+# sign-on, a workstation ends up going through the proxy without anyone having
+# configured or typed anything.
 #
 # Usage:
 #   ./install.sh check | install | remove | status
 #
 # Or from the network:
-#   fetch -q -o - https://raw.githubusercontent.com/bootablearg/pfsense-packages-revived/main/squidanalyzer/install.sh | sh -s check
+#   fetch -q -o - https://raw.githubusercontent.com/bootablearg/pfsense-packages-revived/main/wpad/install.sh | sh -s check
 #
-# See ../docs/PATTERN.md for the method and its caveats.#
-# Packaging: this builds a real pfSense-pkg-* package and installs it from a
-# temporary local repository, so it appears under System > Package Manager and
-# the trash icon removes it -- files, menu entries, service and all. See
-# ../docs/PACKAGING.md for why that indirection is necessary.#
-# Packaging: this builds a real pfSense-pkg-* package and installs it from a
-# temporary local repository, so it appears under System > Package Manager and
-# the trash icon removes it -- files, menu entries, service and all. See
-# ../docs/PACKAGING.md for why that indirection is necessary.#
-# Packaging: this builds a real pfSense-pkg-* package and installs it from a
-# temporary local repository, so it appears under System > Package Manager and
-# the trash icon removes it -- files, menu entries, service and all. See
-# ../docs/PACKAGING.md for why that indirection is necessary.#
-# Packaging: this builds a real pfSense-pkg-* package and installs it from a
-# temporary local repository, so it appears under System > Package Manager and
-# the trash icon removes it -- files, menu entries, service and all. See
-# ../docs/PACKAGING.md for why that indirection is necessary.#
-# Packaging: this builds a real pfSense-pkg-* package and installs it from a
-# temporary local repository, so it appears under System > Package Manager and
-# the trash icon removes it -- files, menu entries, service and all. See
-# ../docs/PACKAGING.md for why that indirection is necessary.#
-# Packaging: this builds a real pfSense-pkg-* package and installs it from a
-# temporary local repository, so it appears under System > Package Manager and
-# the trash icon removes it -- files, menu entries, service and all. See
-# ../docs/PACKAGING.md for why that indirection is necessary.#
-# Packaging: this builds a real pfSense-pkg-* package and installs it from a
-# temporary local repository, so it appears under System > Package Manager and
-# the trash icon removes it -- files, menu entries, service and all. See
-# ../docs/PACKAGING.md for why that indirection is necessary.#
-# Packaging: this builds a real pfSense-pkg-* package and installs it from a
-# temporary local repository, so it appears under System > Package Manager and
-# the trash icon removes it -- files, menu entries, service and all. See
-# ../docs/PACKAGING.md for why that indirection is necessary.#
-# Packaging: this builds a real pfSense-pkg-* package and installs it from a
-# temporary local repository, so it appears under System > Package Manager and
-# the trash icon removes it -- files, menu entries, service and all. See
-# ../docs/PACKAGING.md for why that indirection is necessary.#
-# Packaging: this builds a real pfSense-pkg-* package and installs it from a
-# temporary local repository, so it appears under System > Package Manager and
-# the trash icon removes it -- files, menu entries, service and all. See
-# ../docs/PACKAGING.md for why that indirection is necessary.#
-# Packaging: this builds a real pfSense-pkg-* package and installs it from a
-# temporary local repository, so it appears under System > Package Manager and
-# the trash icon removes it -- files, menu entries, service and all. See
-# ../docs/PACKAGING.md for why that indirection is necessary.#
+# This package needs no binary from any repository: it runs a second nginx,
+# which pfSense already ships. See ../docs/PATTERN.md for the method.#
 # Packaging: this builds a real pfSense-pkg-* package and installs it from a
 # temporary local repository, so it appears under System > Package Manager and
 # the trash icon removes it -- files, menu entries, service and all. See
@@ -79,34 +41,34 @@ set -u
 # Everything specific to this package lives in this block. The rest of the
 # script is identical across every package in the repository.
 
-PKG_SHORT="SquidAnalyzer"			# -> pfSense-pkg-SquidAnalyzer
-PKG_TITLE="SquidAnalyzer"			# name shown in the Package Manager
+PKG_SHORT="WPAD"			# -> pfSense-pkg-WPAD
+PKG_TITLE="WPAD"			# name shown in the Package Manager
 PKG_VERSION="1.1.0"
 PKG_CATEGORY="www"
 PKG_LICENSE="APACHE20"
-PKG_COMMENT="Squid log analyser and report generator"
-PKG_DESCR="Produces per-user, per-day and per-site browsing reports from the Squid access log."
-PKG_CONFIGFILE="squidanalyzer.xml"
-SRC_DIRNAME="squidanalyzer"
+PKG_COMMENT="Serves a WPAD/PAC file so browsers find the proxy on their own"
+PKG_DESCR="Publishes wpad.dat and proxy.pac over a dedicated nginx instance, so browsers discover the proxy through DHCP option 252 or DNS instead of being configured one by one."
+PKG_CONFIGFILE="wpad.xml"
+SRC_DIRNAME="wpad"
 
 # FreeBSD packages this one needs. Installed first, from FreeBSD's official
 # repository, then recorded as dependencies of our package so that removing
 # ours takes them with it.
-BIN_DEPS="squidanalyzer"
+BIN_DEPS=""
 
 # "no" for a package that needs nothing beyond what pfSense already ships, so
 # an empty BIN_DEPS is a fact rather than a failed lookup.
-DEPS_REQUIRED="yes"
+DEPS_REQUIRED="no"
 
 # Names this package used in earlier versions of this repository. Their stale
 # config.xml entries are purged on install so the Package Manager does not end
 # up listing the same package twice.
-LEGACY_NAMES="squidanalyzer"
+LEGACY_NAMES=""
 
-FILES_PKG="squidanalyzer.inc squidanalyzer.template squidanalyzer.xml
-	squidanalyzer_sync.xml"
-FILES_WWW="squidanalyzer_frame.php squidanalyzer_reports.php"
-FILES_PRIV="squidanalyzer.priv.inc"
+FILES_PKG="wpad.inc wpad.xml wpad_index.template wpad_nginx.template
+	wpad_script.template wpad_sync.xml"
+FILES_WWW="shortcuts/pkg_wpad.inc"
+FILES_PRIV="wpad.priv.inc"
 FILES_BIN=""
 
 # --------------------------------------------------------------- constants ---

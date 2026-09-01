@@ -23,11 +23,13 @@ interfaz a las APIs actuales de PHP y pfSense, e instalar los binarios desde el
 | Paquete | Qué hace | Estado |
 |---|---|---|
 | **[samba-ad](samba-ad/)** | Une el firewall a un dominio de Active Directory (Samba/winbind). Integración opcional con Squid con inicio de sesión único. | Verificado de punta a punta en CE 2.9.0 contra un AD real |
-| **[e2guardian](e2guardian/)** | Filtrado de contenido web: inspecciona el cuerpo de la respuesta, frases y tipos MIME, con políticas por grupo. | Instala, genera configuración y arranca en CE 2.9.0; faltan revisar las pantallas |
-| **[sarg](sarg/)** | Reportes detallados de navegación de Squid por usuario, sitio y fecha. | Instala y se registra en CE 2.9.0; faltan reportes con tráfico real |
-| **[squidanalyzer](squidanalyzer/)** | Reportes de Squid más livianos, orientados a gráficos. | Instala y se registra en CE 2.9.0; faltan reportes con tráfico real |
-| **[postfix](postfix/)** | Pasarela y reenviador de correo (SMTP, antispam, relay). | Código verificado y el plan de instalación resuelve en CE 2.9.0; **sin ejecutar en un sistema real** |
-| **[mailscanner](mailscanner/)** | Filtrado de correo con SpamAssassin y ClamAV. Necesita un MTA (postfix). | Código verificado y el plan de instalación resuelve en CE 2.9.0; **sin ejecutar en un sistema real** |
+| **[wpad](wpad/)** | Publica wpad.dat y proxy.pac para que los navegadores encuentren el proxy por opción 252 de DHCP o por DNS, en vez de configurarlos uno por uno. | Instala y se registra en CE 2.9.0; todavía no se sirvió a un cliente real |
+| **[e2guardian](e2guardian/)** | Filtrado de contenido web: inspecciona el cuerpo de la respuesta, frases y tipos MIME, con políticas por grupo. | Instala y corre en CE 2.9.0, GUI revisada en el browser; todavía no filtró tráfico real |
+| **[sarg](sarg/)** | Reportes detallados de navegación de Squid por usuario, sitio y fecha. | Instala y se registra en CE 2.9.0, GUI revisada; faltan reportes con tráfico real |
+| **[squidanalyzer](squidanalyzer/)** | Reportes de Squid más livianos, orientados a gráficos. | Instala y se registra en CE 2.9.0, GUI revisada; faltan reportes con tráfico real |
+| **[speedtest](speedtest/)** | Mide el ancho de banda desde el propio firewall, eligiendo la dirección de origen. | Verificado en CE 2.9.0: corre una medición real y la muestra |
+| **[postfix](postfix/)** | Pasarela y reenviador de correo (SMTP, antispam, relay). | Instala y se registra en CE 2.9.0, GUI revisada; **no pasó ni un mail por él** |
+| **[mailscanner](mailscanner/)** | Filtrado de correo con SpamAssassin y ClamAV. Necesita un MTA (postfix). | Instala y se registra en CE 2.9.0; **no pasó ni un mail por él** |
 
 Hay más en camino. En [docs/PATTERN.md](docs/PATTERN.md) está documentado cómo
 se agrega un paquete; las instrucciones de instalación están en el README de
@@ -78,6 +80,8 @@ de autores distintos con términos distintos:
 | [squidanalyzer](squidanalyzer/LICENSE) | Apache-2.0 | © 2016 Luiz Gustavo, © 2017 Marcello Coutinho |
 | [postfix](postfix/LICENSE) | Apache-2.0 | © 2011-2021 Marcello Coutinho |
 | [mailscanner](mailscanner/LICENSE) | Apache-2.0 | © 2011-2019 Marcello Coutinho |
+| [wpad](wpad/LICENSE) | Apache-2.0 | © 2017-2025 Marcello Coutinho |
+| [speedtest](speedtest/LICENSE) | Apache-2.0 + BSD 2-Clause | © 2019 Marcello Coutinho, © 2015 ESF LLC, © 2004-2018 Netgate |
 
 Los avisos de copyright originales se conservan tal como esas licencias lo
 exigen. Si bifurcás este repositorio, mantenelos.
