@@ -106,14 +106,21 @@ Afterwards the configuration holds `menu: E2guardian Proxy` and
 `servicio: e2guardian`, and `parse_xml_config_pkg()` returns
 `Services: E2guardian`.
 
+### 6. The GUI in a browser
+
+Every screen was opened in a browser on 2026-09-01, on pfSense CE 2.9.0.
+
+One defect came out of it, in the postfix package rather than this one:
+`postfix_queue.php` and two other pages re-loaded jQuery and Bootstrap in the
+middle of the body, which re-registered Bootstrap's plugins and left the top
+navigation bar's dropdowns dead. Fixed in `ae5e597`.
+
+Nine of this package's own pages had simply never been installed -- the
+upstream fetch enumerated `/usr/local/pkg` and skipped `/usr/local/www`
+entirely. Among them `e2gerror.php`, the page an end user sees when a request
+is blocked: the filter worked and answered with a 404. Fixed in `1dd8b6d`.
+
 ## Open
-
-### A. The GUI in a browser
-
-The XMLs parse and the menu registers, but no screen has been opened in a
-browser. There are 17 of them (ACLs for sites, URLs, phrases, content, files,
-headers, search; groups; LDAP; limits; logs; sync; antivirus), so this needs a
-real pass.
 
 ### B. Filtering actual traffic
 
