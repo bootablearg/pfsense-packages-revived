@@ -131,13 +131,13 @@ $rows = array(
 
 foreach ($rows as $row) {
 	$icon = $row[1]
-		? '<i class="fa fa-check text-success"></i> ' . gettext('yes')
-		: '<i class="fa fa-times text-danger"></i> ' . gettext('no');
+		? '<i class="fa-solid fa-check text-success"></i> ' . gettext('yes')
+		: '<i class="fa-solid fa-times text-danger"></i> ' . gettext('no');
 
 	/* Squid rows are informational: this package does not require Squid, so a
 	 * "no" there is not a fault condition. */
 	if (!$row[1] && in_array($row[0], array(gettext('Squid package installed'), gettext('ntlm_auth linked into Squid')), true)) {
-		$icon = '<i class="fa fa-minus text-muted"></i> ' . gettext('not in use');
+		$icon = '<i class="fa-solid fa-minus text-muted"></i> ' . gettext('not in use');
 	}
 
 	echo '<tr><td><strong>' . htmlspecialchars($row[0]) . '</strong></td>';

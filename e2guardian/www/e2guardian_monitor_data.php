@@ -69,13 +69,13 @@ if ($_POST) {
 							echo "<tr valign='top'>\n";
 
 							if (preg_match("/(404|50\d)/",$logline[8])) {
-								echo "<td><i class='fa fa-times text-warning'></i></td>\n";
+								echo "<td><i class='fa-solid fa-times text-warning'></i></td>\n";
 							} else  if (preg_match("/40\d/",$logline[8])) {
-								echo "<td><i class='fa fa-times text-danger'></i></td>\n";
+								echo "<td><i class='fa-solid fa-times text-danger'></i></td>\n";
         	                                        } else if (preg_match("/30\d/",$logline[8])) {
-                	                                      echo "<td><i class='fa fa-arrow-circle-o-right text-success'></i></td>\n";
+                	                                      echo "<td><i class='fa-solid fa-circle-arrow-right text-success'></i></td>\n";
                         	                        } else {
-                                	                        echo "<td><i class='fa fa-check text-success'></i></td>\n";
+                                	                        echo "<td><i class='fa-solid fa-check text-success'></i></td>\n";
                                         	        }
                                        		        echo "<td class='listlr' nowrap='nowrap'>" . e2gm($logline[1]) . "</td>\n";
                                        	       		echo "<td $listr>" . e2gm($logline[3]) . "</td>\n";
@@ -106,13 +106,13 @@ if ($_POST) {
 
 						echo "<tr valign='top'>\n";
 						if (preg_match("/TCP_DENIED/",$logline[4])) {
-                                                        echo "<td><i class='fa fa-times text-danger'></i></td>\n";
+                                                        echo "<td><i class='fa-solid fa-times text-danger'></i></td>\n";
                                                 } else if (preg_match("/MISS.(4|5)0/",$logline[4])) {
-                                                        echo "<td><i class='fa fa-times text-warning'></i></td>\n";
+                                                        echo "<td><i class='fa-solid fa-times text-warning'></i></td>\n";
                                                 } else if (preg_match("/MISS.30\d/",$logline[4])) {
-                                                       echo "<td><i class='fa fa-arrow-circle-o-right text-success'></i></td>\n";
+                                                       echo "<td><i class='fa-solid fa-circle-arrow-right text-success'></i></td>\n";
                                                 } else {
-                                                        echo "<td><i class='fa fa-check text-success'></i></td>\n";
+                                                        echo "<td><i class='fa-solid fa-check text-success'></i></td>\n";
                                                 }
 						echo "<td class='listlr' nowrap='nowrap'>" . e2gm("{$logline[0]} {$logline[1]}") . "</td>\n";
 						echo "<td $listr>" . e2gm($logline[8]) . "</td>\n";
@@ -139,13 +139,13 @@ if ($_POST) {
 							echo "<tr valign='top'>\n";
 
 							if (preg_match("/(404|50\d)/",$logline[10])) {
-								echo "<td><i class='fa fa-times text-warning'></i></td>\n";
+								echo "<td><i class='fa-solid fa-times text-warning'></i></td>\n";
 							} else  if (preg_match("/40\d/",$logline[10])) {
-								echo "<td><i class='fa fa-times text-danger'></i></td>\n";
+								echo "<td><i class='fa-solid fa-times text-danger'></i></td>\n";
         	                } else if (preg_match("/30\d/",$logline[10])) {
-                	            echo "<td><i class='fa fa-arrow-circle-o-right text-success'></i></td>\n";
+                	            echo "<td><i class='fa-solid fa-circle-arrow-right text-success'></i></td>\n";
                         	} else {
-                                echo "<td><i class='fa fa-check text-success'></i></td>\n";
+                                echo "<td><i class='fa-solid fa-check text-success'></i></td>\n";
                                 //echo "<td>" . print_r($logline) . "</td>\n";
                             }
 
@@ -191,7 +191,7 @@ if ($_POST) {
                                 $url = html_autowrap($url);
                                 $logline[5] = html_autowrap($logline[5]);
                                 echo "<tr valign='top'>\n";
-                                echo "<td><i class='fa fa-times text-danger'></i></td>\n";
+                                echo "<td><i class='fa-solid fa-times text-danger'></i></td>\n";
                                 echo "<td class='listlr' nowrap='nowrap'>" . e2gm($logline[0]) . "</td>\n";
                                 echo "<td $listr>" . e2gm($logline[1]) . "</td>\n";
                                 echo "<td $listr>" . e2gm($logline[2]) . "</td>\n";

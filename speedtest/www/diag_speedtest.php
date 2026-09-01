@@ -177,7 +177,7 @@ $form->addGlobal(new Form_Button(
 	'Submit',
 	'Speedtest',
 	null,
-	'fa-rss'
+	'fa-solid fa-rss'
 ))->addClass('btn-primary');
 
 print $form;
