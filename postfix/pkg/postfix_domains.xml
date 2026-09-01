@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE packagegui SYSTEM "./schema/packages.dtd">
+<?xml-stylesheet type="text/xsl" href="./xsl/package.xsl"?>
+<packagegui>
+	<copyright>
+	<![CDATA[
+/* $Id$ */
+/*
+ * postfix_domains.xml
+ *
+ * 
+ * Copyright (c) 2011-2019 Marcello Coutinho
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/* ========================================================================== */
+	]]>
+	</copyright>
+	<description>Describe your package here</description>
+	<requirements>Describe your package requirements here</requirements>
+	<faq>Currently there are no FAQ items provided.</faq>
+	<name>postfixdomainsng</name>
+	<version>1.0</version>
+	<title>Services: Postfix relay and antispam</title>
+	<include_file>/usr/local/pkg/postfix.inc</include_file>
+	<tabs>
+		<tab>
+			<text>General</text>
+			<url>/pkg_edit.php?xml=postfix.xml&amp;id=0</url>
+		</tab>
+		<tab>
+			<text>Domains</text>
+			<url>/pkg.php?xml=postfix_domains.xml</url>
+			<active/>
+		</tab>
+		<tab>
+			<text>Recipients</text>
+			<url>/pkg_edit.php?xml=postfix_recipients.xml&amp;id=0</url>
+		</tab>
+		<tab>
+			<text>Access Lists</text>
+			<url>/pkg_edit.php?xml=postfix_acl.xml&amp;id=0</url>
+		</tab>
+		<tab>
+			<text>Antispam</text>
+			<url>/pkg_edit.php?xml=postfix_antispam.xml&amp;id=0</url>
+		</tab>
+		<tab>
+			<text>Sync</text>
+			<url>/pkg_edit.php?xml=postfix_sync.xml&amp;id=0</url>
+		</tab>
+		<tab>
+			<text>View config</text>
+			<url>/postfix_view_config.php</url>
+		</tab>
+		<tab>
+			<text>Search mail</text>
+			<url>/postfix_search.php</url>
+		</tab>
+		<tab>
+			<text>Queue</text>
+			<url>/postfix_queue.php</url>
+		</tab>
+		<tab>
+			<text>About</text>
+			<url>/postfix_about.php</url>
+		</tab>
+
+</tabs>
+	<adddeleteeditpagefields>
+		<columnitem>
+			<fielddescr>Domain</fielddescr>
+			<fieldname>domain</fieldname>
+		</columnitem>
+		<columnitem>
+			<fielddescr>Mail Server</fielddescr>
+			<fieldname>mailserverip</fieldname>
+		</columnitem>
+		<columnitem>
+                        <fielddescr>DKIM</fielddescr>
+                        <fieldname>dkim</fieldname>
+                </columnitem>
+		<columnitem>
+                        <fielddescr>Key size</fielddescr>
+                        <fieldname>bits</fieldname>
+                </columnitem>
+		<columnitem>
+                        <fielddescr>DMARC</fielddescr>
+                        <fieldname>dmarcpolicy</fieldname>
+                </columnitem>
+		<movable>on</movable>
+	</adddeleteeditpagefields>
+	<fields>
+		<field>
+			<name>Domain to Forward</name>
+			<type>listtopic</type>
+		</field>
+		<field>
+			<fielddescr>Forwarding Domain</fielddescr>
+			<fieldname>domain</fieldname>
+			<description>Enter the domain here (ex: example.com)</description>
+			<type>input</type>
+			<size>27</size>
+		</field>
+		<field>
+			<fielddescr>Mail Server</fielddescr>
+			<fieldname>mailserverip</fieldname>
+			<description><![CDATA[Enter the mail server <b>fqdn</b> ,<b>IP</b> or <b>IP:port</b> to forward to here.]]></description>
+			<type>input</type>
+			<size>30</size>
+		</field>
+		<field>
+                        <name>Domains Key</name>
+                        <type>listtopic</type>
+	        </field>
+                <field>
+                        <fielddescr>DKIM</fielddescr>
+                        <fieldname>dkim</fieldname>
+                        <description><![CDATA[Sign outgoin mail from this domain.]]></description>
+                        <type>select</type>
+                        <options>
+                                <option><name>Do not sign outgoing mail (Default)</name><value>no</value></option>
+                                <option><name>Sign outgoing mail</name><value>yes</value></option>
+                        </options>
+                </field>
+                <field>
+                        <fielddescr>key size</fielddescr>
+                        <fieldname>bits</fieldname>
+                        <description>bits to use on key.</description>
+                        <type>select</type>
+                        <options>
+                        	<option><name>1024</name><value>1024</value></option>
+                                <option><name>2048</name><value>2048</value></option>
+                        </options>
+                </field>
+		<field>
+			<fielddescr>Private Key</fielddescr>
+			<fieldname>private</fieldname>
+			<description><![CDATA[DKIM Private key<br>
+				You can paste a previous key or leave empty to create a new key.<br>
+			]]></description>
+			<type>textarea</type>
+			<cols>80</cols>
+			<rows>6</rows>
+			<encoding>base64</encoding>
+		</field>
+		<field>
+                        <fielddescr>TXT Record</fielddescr>
+                        <fieldname>pub</fieldname>
+                        <description><![CDATA[DKIM Public TXT record<br>
+			You can paste a previous TXT record or leave empty to create a new one.]]></description>
+                        <type>textarea</type>
+                        <cols>80</cols>
+                        <rows>6</rows>
+                        <encoding>base64</encoding>
+                </field>
+		<field>
+                        <name><![CDATA[Domain based Message Authentication, Reporting & Conformance settings]]></name>
+                        <type>listtopic</type>
+                </field>
+		<field>
+                        <fielddescr>Policy type</fielddescr>
+                        <fieldname>dmarcpolicy</fieldname>
+                        <description>DMARC policy type</description>
+                        <type>select</type>
+                        <options>
+			<option><name>disabled - Do not configure DMARC for this domain.</name><value>disabled</value></option>
+                        <option><name>none - Don't do anything if the DMARC verification fails.</name><value>none</value></option>
+                        <option><name>quarantine - Mail that fails DMARC checks should be treated as suspicious.</name><value>quaratine</value></option>
+                        <option><name>reject - Mail should be rejected If the DMARC verification fails.</name><value>reject</value></option>
+                        </options>
+                </field>
+                <field>
+                        <fielddescr>rua address</fielddescr>
+                        <fieldname>dmarcrua</fieldname>
+                        <description><![CDATA[<span>This is an optional parameter and contains
+                        the address to which the DMARC aggregate report should be submitted.</span>]]></description>
+                        <type>input</type>
+                        <size>60</size>
+                </field>
+                <field>
+                        <fielddescr>ruf address</fielddescr>
+                        <fieldname>dmarcruf</fieldname>
+                        <description><![CDATA[<span>
+                        This is similar to the rua field, but these are the addresses for DMARC forensic reports.
+                        </span>]]></description>
+                        <type>input</type>
+                        <size>60</size>
+                </field>
+                <field>
+                        <fielddescr>fo report</fielddescr>
+                        <fieldname>dmarcfo</fieldname>
+                        <description>DMARC failure reporting options.</description>
+                        <type>select</type>
+                        <options>
+                        <option><name>0: generate a report if both SPF and DKIM tests failed</name><value>0</value></option>
+                        <option><name>1: generate a report if either the SPF or the DKIM test failed</name><value>1</value></option>
+                        <option><name>s: generate a report if the SPF test failed</name><value>s</value></option>
+                        <option><name>d: generate a report if the DKIM test failed</name><value>d</value></option>
+                        </options>
+                </field>
+		<field>
+                        <fielddescr>percentual</fielddescr>
+                        <fieldname>dmarcpct</fieldname>
+                        <description><![CDATA[<span>
+                        This is also optional and determines how many percent of the messages from your domain
+                        should have the DMARC verification done by other mail providers.<br>The possible values here are integers between 0 and 100(default).
+                        </span>]]></description>
+                        <type>input</type>
+                        <size>10</size>
+                </field>
+                <field>
+                        <fielddescr>DNS TXT record</fielddescr>
+                        <fieldname>dmarctxt</fieldname>
+                        <description><![CDATA[<span>
+                        This is the resulting DMARC TXT recort to add to your dns configuration based on above selected options
+                        </span>]]></description>
+			<type>textarea</type>
+			<cols>80</cols>
+                        <rows>3</rows>
+                        <encoding>base64</encoding>
+                </field>
+	</fields>
+        <custom_php_command_before_form>
+                postfix_check_config();
+        </custom_php_command_before_form>
+	<custom_php_install_command>
+		postfix_php_install_command();
+	</custom_php_install_command>
+	<custom_php_deinstall_command>
+		postfix_php_deinstall_command();
+	</custom_php_deinstall_command>
+	<custom_php_validation_command>
+		postfix_domain_validate_input($_POST, $input_errors);
+	</custom_php_validation_command>	
+	<custom_php_resync_config_command>
+		sync_package_postfix();
+	</custom_php_resync_config_command>
+</packagegui>

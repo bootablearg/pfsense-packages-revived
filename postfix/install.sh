@@ -1,29 +1,24 @@
 #!/bin/sh
 #
-# install.sh -- installer for the pfSense "E2guardian" web content filter package.
+# install.sh -- installer for the pfSense "Postfix Forwarder" package.
 #
-# Copyright (c) 2015-2017 Marcello Coutinho
+# Copyright (c) 2011-2021 Marcello Coutinho
 # Copyright (c) 2026 pfsense-packages-revived contributors
 #
 # Licensed under the Apache License, Version 2.0. See LICENSE.
 #
-# Derived from the e2guardian package in
-# https://github.com/marcelloc/Unofficial-pfSense-packages (pkg-e2guardian5),
-# ported to pfSense 2.9 / PHP 8.5 and to e2guardian 5.3.x.
+# Derived from the postfix package in
+# https://github.com/marcelloc/Unofficial-pfSense-packages (pkg-postfix),
+# ported to pfSense 2.9 / PHP 8.5.
 #
-# Usage, from a clone:
-#   ./install.sh check     Report what would happen. Changes nothing.
-#   ./install.sh install   Install e2guardian, the package files and the GUI.
-#   ./install.sh remove    Unregister and remove the package files.
-#   ./install.sh status    Show current state.
+# Postfix here acts as a mail gateway / forwarder in front of your real mail
+# server: it accepts SMTP, applies antispam and access policies, and relays on.
+# For a small office already running pfSense, that avoids standing up a separate
+# mail gateway appliance.
 #
-# Or straight from the network:
-#   fetch -q -o - https://raw.githubusercontent.com/bootablearg/pfsense-packages-revived/main/e2guardian/install.sh | sh -s check
-#
-# e2guardian filters by *content* -- it inspects the response body, phrases,
-# MIME types -- and can apply different policies per group. That is what it
-# adds over DNS-level filtering such as pfBlockerNG, which blocks by domain
-# and cannot see inside a response.
+# NOTE: this listens on SMTP. Do not install it on a firewall that already has
+# something bound to port 25, and think about whether your border firewall is
+# where you want mail processing to live.
 #
 # The binary comes from FreeBSD's official package repository: no private
 # repository, no key. See ../docs/PATTERN.md for the method and its caveats.
@@ -42,7 +37,7 @@ if [ -n "${SCRIPT_DIR}" ] && [ -d "${SCRIPT_DIR}/pkg" ]; then
 	WWW_SRC_DIR="${SCRIPT_DIR}/www"
 fi
 
-SRC_URL="${SRC_URL:-https://raw.githubusercontent.com/bootablearg/pfsense-packages-revived/main/e2guardian}"
+SRC_URL="${SRC_URL:-https://raw.githubusercontent.com/bootablearg/pfsense-packages-revived/main/postfix}"
 # ${ABI} must reach pkg literally -- pkg expands it, the shell must not.
 # Nesting it inside ${VAR:-default} makes sh swallow the closing brace and
 # yields ".../${ABI/latest}", a repository URL that never resolves. The bug
@@ -50,27 +45,19 @@ SRC_URL="${SRC_URL:-https://raw.githubusercontent.com/bootablearg/pfsense-packag
 REPO_URL="${REPO_URL:-}"
 [ -n "${REPO_URL}" ] || REPO_URL='pkg+https://pkg.freebsd.org/${ABI}/latest'
 
-E2G_PKG="${E2G_PKG:-e2guardian}"
+BIN_PKG="${BIN_PKG:-postfix}"
 PKG_DEST="/usr/local/pkg"
 WWW_DEST="/usr/local/www"
-E2G_ETC="/usr/local/etc/e2guardian"
-STAMP="/usr/local/etc/e2guardian.installed"
-TMP_REPOS="/tmp/e2g_repos.$$"
+BIN_ETC="/usr/local/etc/postfix"
+STAMP="/usr/local/etc/postfix.installed"
+TMP_REPOS="/tmp/postfix_repos.$$"
 
 # Package files, mirroring the upstream layout.
-FILES_PKG="e2guardian.inc e2guardian_antivirus.inc pkg_e2guardian.inc
-e2guardian.xml e2guardian_config.xml e2guardian_groups.xml e2guardian_ips.xml
-e2guardian_ldap.xml e2guardian_limits.xml e2guardian_log.xml
-e2guardian_blacklist.xml e2guardian_sync.xml e2guardian_users.xml
-e2guardian_site_acl.xml e2guardian_url_acl.xml e2guardian_phrase_acl.xml
-e2guardian_content_acl.xml e2guardian_file_acl.xml e2guardian_header_acl.xml
-e2guardian_search_acl.xml e2guardian_antivirus_acl.xml
-e2guardian.conf.template e2guardianfx.conf.template e2guardian_rc.template
-e2guardian_story.template e2guardian_ips_header.template
-e2guardian_users_header.template e2guardian_users_footer.template
-icapscan.conf.template"
+FILES_PKG="postfix.inc postfix.xml postfix_acl.xml postfix_antispam.xml
+postfix_dkim.inc postfix_dmarc.inc postfix_domains.xml postfix_postfwd.inc
+postfix_postwhite.template postfix_recipients.xml postfix_sync.xml"
 
-FILES_WWW="e2guardian.php"
+FILES_WWW=""
 
 log()  { echo "==> $*"; }
 warn() { echo "WARNING: $*" >&2; }
@@ -102,8 +89,8 @@ detect_product() {
 	esac
 }
 
-e2g_installed() { [ -x /usr/local/sbin/e2guardian ]; }
-e2g_version()   { /usr/local/sbin/e2guardian -v 2>/dev/null | head -1; }
+bin_installed() { [ -x /usr/local/sbin/master ] || [ -x /usr/local/bin/master ]; }
+bin_version()   { pkg query '%n-%v' ${BIN_PKG} 2>/dev/null | head -1; }
 
 # Temporary pkg configuration: the firewall's own repository files are never
 # touched, so an interrupted run cannot leave a third-party repo enabled.
@@ -113,7 +100,7 @@ prepare_repos() {
 		cp /usr/local/etc/pkg/repos/*.conf "${TMP_REPOS}/" 2>/dev/null || true
 	fi
 	printf 'FreeBSD-ports: { url: "%s", mirror_type: "srv", enabled: yes }\n' \
-		"${REPO_URL}" > "${TMP_REPOS}/e2g_ports.conf"
+		"${REPO_URL}" > "${TMP_REPOS}/postfix_ports.conf"
 }
 
 # pfSense tracks a FreeBSD snapshot behind the one the official packages are
@@ -159,13 +146,13 @@ if (!is_array($menu)) { $menu = []; }
 
 $found = false;
 foreach ($menu as $item) {
-	if (isset($item['name']) && $item['name'] === 'E2guardian Proxy') { $found = true; break; }
+	if (isset($item['name']) && $item['name'] === 'Postfix Forwarder') { $found = true; break; }
 }
 if (!$found) {
 	$menu[] = [
-		'name'    => 'E2guardian Proxy',
+		'name'    => 'Postfix Forwarder',
 		'section' => 'Services',
-		'url'     => '/pkg_edit.php?xml=e2guardian.xml&id=0',
+		'url'     => '/pkg_edit.php?xml=postfix.xml&id=0',
 	];
 }
 
@@ -176,14 +163,14 @@ if (!is_array($service)) { $service = []; }
 
 $found = false;
 foreach ($service as $item) {
-	if (isset($item['name']) && $item['name'] === 'e2guardian') { $found = true; break; }
+	if (isset($item['name']) && $item['name'] === 'postfix') { $found = true; break; }
 }
 if (!$found) {
 	$service[] = [
-		'name'        => 'e2guardian',
-		'rcfile'      => 'e2guardian.sh',
-		'executable'  => 'e2guardian',
-		'description' => 'E2guardian web content filter',
+		'name'        => 'postfix',
+		'rcfile'      => 'postfix.sh',
+		'executable'  => 'postfix',
+		'description' => 'Postfix Forwarder',
 	];
 }
 
@@ -195,7 +182,7 @@ if (function_exists('config_set_path')) {
 	$config['installedpackages']['service'] = $service;
 }
 
-write_config('E2guardian: register package menu and service');
+write_config('Postfix Forwarder: register package menu and service');
 exec;
 exit
 PHPEOF
@@ -210,7 +197,7 @@ $menu = function_exists('config_get_path')
 	: ($config['installedpackages']['menu'] ?? []);
 if (!is_array($menu)) { $menu = []; }
 $menu = array_values(array_filter($menu, function ($i) {
-	return !(isset($i['name']) && $i['name'] === 'E2guardian Proxy');
+	return !(isset($i['name']) && $i['name'] === 'Postfix Forwarder');
 }));
 
 $service = function_exists('config_get_path')
@@ -218,7 +205,7 @@ $service = function_exists('config_get_path')
 	: ($config['installedpackages']['service'] ?? []);
 if (!is_array($service)) { $service = []; }
 $service = array_values(array_filter($service, function ($i) {
-	return !(isset($i['name']) && $i['name'] === 'e2guardian');
+	return !(isset($i['name']) && $i['name'] === 'postfix');
 }));
 
 if (function_exists('config_set_path')) {
@@ -229,7 +216,7 @@ if (function_exists('config_set_path')) {
 	$config['installedpackages']['service'] = $service;
 }
 
-write_config('E2guardian: unregister package');
+write_config('Postfix Forwarder: unregister package');
 exec;
 exit
 PHPEOF
@@ -238,10 +225,10 @@ PHPEOF
 # Generate the configuration through the package's own sync function -- the
 # same call the GUI makes on save.
 run_sync() {
-	log "Generating e2guardian configuration"
+	log "Generating configuration"
 	/usr/local/sbin/pfSsh.php <<'PHPEOF'
-require_once('/usr/local/pkg/e2guardian.inc');
-sync_package_e2guardian('no', true);
+require_once('/usr/local/pkg/postfix.inc');
+sync_package_postfix();
 exec;
 exit
 PHPEOF
@@ -253,21 +240,21 @@ do_check() {
 	echo "ABI       : $(pkg config abi 2>/dev/null)"
 	echo "PHP       : $(php -v 2>/dev/null | head -1)"
 
-	if e2g_installed; then
-		echo "e2guardian: installed ($(e2g_version))"
+	if bin_installed; then
+		echo "postfix: installed ($(bin_version))"
 	else
 		prepare_repos
 		log "Querying repositories (nothing is changed)"
 		tpkg update >/dev/null 2>&1 || warn "Could not refresh repository catalogues."
 
-		_v=$(tpkg search -q "^${E2G_PKG}-" 2>/dev/null | head -1)
+		_v=$(tpkg search -q "^${BIN_PKG}-" 2>/dev/null | head -1)
 		if [ -n "${_v}" ]; then
-			echo "e2guardian: available as '${_v}'"
+			echo "postfix: available as '${_v}'"
 			echo
 			echo "Install plan:"
-			tpkg install -n "${E2G_PKG}" 2>&1 | tail -4
+			tpkg install -n "${BIN_PKG}" 2>&1 | tail -4
 		else
-			echo "e2guardian: NOT AVAILABLE for this ABI"
+			echo "postfix: NOT AVAILABLE for this ABI"
 			echo "            See ../docs/PATTERN.md for the poudriere fallback."
 		fi
 		cleanup_repos
@@ -291,19 +278,19 @@ do_install() {
 		*) warn "Unrecognised product '${_product}'; continuing, but this is untested." ;;
 	esac
 
-	if e2g_installed; then
-		log "e2guardian already installed ($(e2g_version)), skipping"
+	if bin_installed; then
+		log "postfix already installed ($(bin_version)), skipping"
 	else
 		prepare_repos
 		log "Refreshing repository catalogues"
 		tpkg update >/dev/null 2>&1 || err "Could not refresh repository catalogues."
 
-		log "Installing ${E2G_PKG}"
-		tpkg install -y "${E2G_PKG}" || err "e2guardian installation failed. Nothing else was changed."
+		log "Installing ${BIN_PKG}"
+		tpkg install -y "${BIN_PKG}" || err "postfix installation failed. Nothing else was changed."
 		cleanup_repos
 	fi
 
-	e2g_installed || err "e2guardian installed but the binary is missing. Aborting."
+	bin_installed || err "postfix installed but the binary is missing. Aborting."
 
 	install_files
 	register_gui
@@ -316,18 +303,14 @@ do_install() {
 
 Next steps:
 
-  1. Services > E2guardian Proxy -- review the settings and enable the service.
+  1. Services > Postfix Forwarder -- configure your domains, relay and policies,
+     then enable the service.
 
-  2. Blacklists are NOT downloaded by this installer, because they are large
-     and the download is slow. Fetch them from the package's Blacklist tab
-     when you want them.
+  2. Postfix listens on SMTP. Make sure nothing else on this firewall is bound
+     to port 25, and that your border rules only accept mail where you intend.
 
-  3. e2guardian filters content; it does not replace DNS-level blocking.
-     pfBlockerNG (official, supported) covers domain and IP blocking and the
-     two complement each other.
-
-  4. If you use it downstream of Squid with AD authentication, the samba-ad
-     package in this repository provides the authentication side.
+  3. To add antispam/antivirus filtering on top, see the mailscanner package in
+     this repository.
 
 EOT
 }
@@ -335,20 +318,20 @@ EOT
 do_remove() {
 	require_root
 
-	if pgrep -x e2guardian >/dev/null 2>&1; then
-		log "Stopping e2guardian"
-		pkill -x e2guardian 2>/dev/null
+	if pgrep -x master >/dev/null 2>&1; then
+		log "Stopping postfix"
+		pkill -x master 2>/dev/null
 		sleep 2
 	fi
 
 	unregister_gui
 	remove_files
 	rm -f "${STAMP}"
-	rm -f /usr/local/etc/rc.d/e2guardian.sh
+	rm -f /usr/local/etc/rc.d/postfix.sh
 
 	log "Package removed."
-	log "e2guardian itself and ${E2G_ETC} were left in place."
-	log "Remove them with: pkg remove -y ${E2G_PKG}"
+	log "postfix itself and ${BIN_ETC} were left in place."
+	log "Remove them with: pkg remove -y ${BIN_PKG}"
 }
 
 do_status() {
@@ -358,8 +341,8 @@ do_status() {
 		echo "Not installed."
 	fi
 
-	e2g_installed && echo "binary: $(e2g_version)" || echo "binary: not installed"
-	pgrep -x e2guardian >/dev/null 2>&1 && echo "e2guardian: running" || echo "e2guardian: stopped"
+	bin_installed && echo "binary: $(bin_version)" || echo "binary: not installed"
+	pgrep -x master >/dev/null 2>&1 && echo "postfix: running" || echo "postfix: stopped"
 }
 
 case "${1:-}" in

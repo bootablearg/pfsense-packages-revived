@@ -63,7 +63,12 @@ SAMBA_AD_SRC_URL="${SAMBA_AD_SRC_URL:-https://raw.githubusercontent.com/bootable
 
 # Official FreeBSD repository. ${ABI} is expanded by pkg itself, not by the
 # shell, which is why it is written literally here.
-SAMBA_AD_REPO_URL="${SAMBA_AD_REPO_URL:-pkg+https://pkg.freebsd.org/\${ABI}/latest}"
+# ${ABI} must reach pkg literally -- pkg expands it, the shell must not.
+# Nesting it inside ${VAR:-default} makes sh swallow the closing brace and
+# yields ".../${ABI/latest}", a repository URL that never resolves. The bug
+# only surfaces when the binary is not already installed.
+SAMBA_AD_REPO_URL="${SAMBA_AD_REPO_URL:-}"
+[ -n "${SAMBA_AD_REPO_URL}" ] || SAMBA_AD_REPO_URL='pkg+https://pkg.freebsd.org/${ABI}/latest'
 
 PKG_DEST="/usr/local/pkg"
 WWW_DEST="/usr/local/www"

@@ -33,7 +33,12 @@ PKG_SRC_DIR=""
 [ -n "${SCRIPT_DIR}" ] && [ -d "${SCRIPT_DIR}/pkg" ] && PKG_SRC_DIR="${SCRIPT_DIR}/pkg"
 
 SRC_URL="${SRC_URL:-https://raw.githubusercontent.com/bootablearg/pfsense-packages-revived/main/sarg}"
-REPO_URL="${REPO_URL:-pkg+https://pkg.freebsd.org/\${ABI}/latest}"
+# ${ABI} must reach pkg literally -- pkg expands it, the shell must not.
+# Nesting it inside ${VAR:-default} makes sh swallow the closing brace and
+# yields ".../${ABI/latest}", a repository URL that never resolves. The bug
+# only surfaces when the binary is not already installed.
+REPO_URL="${REPO_URL:-}"
+[ -n "${REPO_URL}" ] || REPO_URL='pkg+https://pkg.freebsd.org/${ABI}/latest'
 
 BIN_PKG="sarg"
 BIN="/usr/local/bin/sarg"
