@@ -354,6 +354,21 @@ function postfix_check_autowhitelist($auto_whitelist){
 
 function postfix_check_postwhite($status,$domains) {
 	$postwhite_acl_file = POSTFIX_LOCALBASE . "/etc/postfix/postscreen_spf_whitelist.cidr";
+
+	/*
+	 * Turning this on without postwhite installed used to hand postscreen a
+	 * cidr: map that nothing ever creates, and Postfix refuses to start on a
+	 * missing lookup table. Fall back to the disabled behaviour instead, and
+	 * say why -- a mail gateway that will not start is a bad way to find out.
+	 */
+	if ($status == 'on' && !file_exists("/usr/local/bin/postwhite")) {
+		log_error("Postfix: Postwhite is enabled but /usr/local/bin/postwhite " .
+		    "is not installed, so no SPF whitelist can be generated. " .
+		    "Ignoring the setting rather than leaving postscreen pointing " .
+		    "at a file that will never exist.");
+		$status = 'off';
+	}
+
 	if ($status == 'on') {
 		//save file
 		$postwhite_domains = preg_replace("/\s+/"," ",$domains);
@@ -1030,37 +1045,44 @@ function postfix_validate_input($post, &$input_errors) {
 	}
 }
 
+/*
+ * spf-tools / postwhite are optional: they power the "Postwhite" SPF-based
+ * sender whitelist under the Antispam tab, which is off by default.
+ *
+ * The original downloaded https://github.com/jsarenik/spf-tools/archive/master.zip
+ * during installation and made it executable. Two problems with that:
+ *
+ *   1. It crashed. Unpacking needs PHP's zip extension, which pfSense does not
+ *      build, so install threw "Class ZipArchive not found" and the package's
+ *      POST-INSTALL script failed outright.
+ *   2. More importantly, it fetched an unpinned branch tarball from a
+ *      third-party account and installed it as root-executable code on a
+ *      firewall, with no signature and no version to audit. Whatever was on
+ *      that branch at that moment is what ran.
+ *
+ * So this no longer downloads anything. If spf-tools is present it is wired
+ * up; if not, the operator is told how to install it deliberately.
+ */
 function postfix_php_install_command() {
-    $spf_dir = "/usr/local/bin/spf-tools";
-    if ( ! file_exists($spf_dir)) {
-        print "\nDownloading spftools from jsarenik@github...";
-        $zip_file = "/tmp/spftools.zip";
-        file_put_contents($zip_file, fopen("https://github.com/jsarenik/spf-tools/archive/master.zip", 'r'));
-        if( file_exists($zip_file) ) {
-            print "done\n";
-            $zip = new ZipArchive;
-            $res = $zip->open($zip_file);
-            if ($res === TRUE) {
-                $zip->extractTo('/tmp/');
-                $zip->close();
-            } else {
-                echo "Failed to extract spftools\n";
-            }
-        } else {
-            print "failed\n";
-        }
-        unlink_if_exists($zip_file);
-    }
-    if (file_exists("/tmp/spf-tools-master")) {
-        system( "mv /tmp/spf-tools-master $spf_dir");
-        system("chmod -R 755 $spf_dir");
-    }
-    
-    if (file_exists("/usr/local/bin/postwhite")) {
-        chmod("/usr/local/bin/postwhite", 0755);
-    }
-    
-    sync_package_postfix();
+	$spf_dir = "/usr/local/bin/spf-tools";
+
+	if (is_dir($spf_dir)) {
+		/* Installed by hand: make sure it is runnable. */
+		mwexec("/bin/chmod -R 755 " . escapeshellarg($spf_dir));
+	}
+
+	if (file_exists("/usr/local/bin/postwhite")) {
+		chmod("/usr/local/bin/postwhite", 0755);
+	} else {
+		log_error("Postfix: postwhite/spf-tools are not installed. The " .
+		    "Postwhite sender whitelist on the Antispam tab will stay " .
+		    "inactive until they are. To add them, fetch a tagged release " .
+		    "of https://github.com/stevejenkins/postwhite and of " .
+		    "spf-tools into /usr/local/bin, and review it first -- it runs " .
+		    "as root from cron.");
+	}
+
+	sync_package_postfix();
 }
 
 function postfix_php_deinstall_command() {

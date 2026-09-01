@@ -834,122 +834,142 @@ function mailscanner_validate_input($post, &$input_errors) {
 	}
 }
 
-function get_github_plugin($url, $glob_array = "", $dest_dir = "", $msg = "", $extra_dir = "") {
-    if ($dest_dir != "") {
-        if (! is_dir($dest_dir)) {
-            mkdir($dest_dir,0755,true);
-        }
-    }
-    $parts = explode ("/", $url);
-    $tmp_dir = "/tmp/github";
-    system("rm -rf $tmp_dir");
-    if ($extra_dir != "") {
-        $zip_file = "/tmp/$extra_dir.zip";
-        $extra_dir = "/" . $extra_dir;
-    } else {
-        $zip_file = "/tmp/{$parts[4]}.zip";
-    }
-    mkdir ($tmp_dir, 0755, true);
-    if ($msg != "") {
-        print "\nDownloading $msg...";
-    } else {
-        print "\nDownloading {$parts[4]} from {$parts[3]}@github...";
-    }
-    file_put_contents($zip_file, fopen($url, 'r'));
-    if( file_exists($zip_file) ) {
-        print "done\n";
-        
-        $zip = new ZipArchive;
-        $res = $zip->open($zip_file);
-        if ($res === TRUE) {
-            $zip->extractTo($tmp_dir . $extra_dir);
-            $zip->close();
-            foreach (glob("$tmp_dir/*") as $a) {
-                //print "$a\n";
-                if (is_array($glob_array)) {
-                    foreach ($glob_array as $glob_parameter) {
-                        foreach (glob ("$a/$glob_parameter") as $plugin_path) {
-                            $parts = explode ("/", $plugin_path);
-                            $file = array_pop($parts);
-                            //print "$plugin_path, $dest_dir/$file\n";
-                            copy ($plugin_path, "$dest_dir/$file");
-                            if (preg_match("/\.sh/", $file)) {
-                                chmod ("$dest_dir/$file", 0755);
-                            }
-                        }
-                    }
-                    return;
-                }
-                if ($dest_dir != "") {
-                    system ("mv $a $dest_dir");
-                } else {
-                    return ($a);
-                }
-            }
-        } else {
-            echo 'Failed to extract spftools\n';
-        }
-    } else {
-        print "failed\n";
-    }
-    
+/*
+ * Optional third-party add-ons.
+ *
+ * The original downloaded five archives during installation and installed them
+ * as executable code:
+ *
+ *   jsarenik/spf-tools                            (branch tarball)
+ *   extremeshok/spamassassin-extremeshok_fromreplyto  (branch tarball)
+ *   smfreegard/DecodeShortURLs                    (branch tarball)
+ *   extremeshok/clamav-unofficial-sigs            (branch tarball)
+ *   didierstevens.com/.../pdfid_v0_2_5.zip        (plain HTTP, no TLS at all)
+ *
+ * None was pinned to a release or verified, all were fetched as "master", and
+ * one travelled unencrypted. Whatever happened to be on those branches at the
+ * moment of installation is what ran as root on the firewall. It also crashed
+ * on the way: unpacking used PHP's zip extension, which pfSense does not build,
+ * so installation died with "Class ZipArchive not found" before finishing.
+ *
+ * Nothing is downloaded automatically any more. The helper below stays, fixed
+ * and usable, for an operator who decides to install these deliberately.
+ */
+function mailscanner_optional_plugins() {
+	return array(
+		'/usr/local/bin/spf-tools' =>
+			'spf-tools (SPF expansion, used by the Postwhite whitelist)',
+		'/usr/local/etc/mail/spamassassin/plugins/FromNameReplyTo.pm' =>
+			'extremeshok_fromreplyto (SpamAssassin: display-name spoofing)',
+		'/usr/local/etc/mail/spamassassin/plugins/DecodeShortURLs.pm' =>
+			'DecodeShortURLs (SpamAssassin: URL shortener expansion)',
+		'/usr/local/sbin/clamav-unofficial-sigs.sh' =>
+			'clamav-unofficial-sigs (extra ClamAV signature feeds)',
+	);
 }
 
+/*
+ * Unpacks an archive into $dest_dir.
+ *
+ * $url may be a local path or an https:// URL. Plain http:// is refused: these
+ * archives become root-executable code, and fetching them over a channel any
+ * intermediary can rewrite is not a risk worth taking for a convenience.
+ *
+ * Extraction goes through bsdtar rather than PHP's ZipArchive, which pfSense's
+ * PHP does not have; bsdtar reads zip files perfectly well.
+ */
+function get_github_plugin($url, $glob_array = "", $dest_dir = "", $msg = "", $extra_dir = "") {
+	if (preg_match('#^http://#i', $url)) {
+		log_error("MailScanner: refusing to fetch {$url} over plain HTTP.");
+		return false;
+	}
+
+	$tmp_dir = "/tmp/github";
+	mwexec("/bin/rm -rf " . escapeshellarg($tmp_dir));
+	safe_mkdir($tmp_dir, 0755);
+
+	$archive = "{$tmp_dir}/plugin.archive";
+	if (preg_match('#^https://#i', $url)) {
+		if (mwexec("/usr/bin/fetch -q -o " . escapeshellarg($archive) . " " .
+		    escapeshellarg($url)) != 0) {
+			log_error("MailScanner: could not download {$url}.");
+			return false;
+		}
+	} else if (file_exists($url)) {
+		copy($url, $archive);
+	} else {
+		log_error("MailScanner: {$url} is neither an https URL nor a readable file.");
+		return false;
+	}
+
+	$target = $tmp_dir . ($extra_dir != "" ? "/" . $extra_dir : "");
+	safe_mkdir($target, 0755);
+	if (mwexec("/usr/bin/tar -x -f " . escapeshellarg($archive) .
+	    " -C " . escapeshellarg($target)) != 0) {
+		log_error("MailScanner: could not unpack " . basename($url) . ".");
+		return false;
+	}
+
+	if ($dest_dir != "" && !is_dir($dest_dir)) {
+		safe_mkdir($dest_dir, 0755);
+	}
+
+	foreach (glob("{$tmp_dir}/*", GLOB_ONLYDIR) as $a) {
+		if (is_array($glob_array)) {
+			foreach ($glob_array as $glob_parameter) {
+				foreach (glob("{$a}/{$glob_parameter}") as $plugin_path) {
+					$file = basename($plugin_path);
+					copy($plugin_path, "{$dest_dir}/{$file}");
+					if (preg_match("/\.sh$/", $file)) {
+						chmod("{$dest_dir}/{$file}", 0755);
+					}
+				}
+			}
+			return true;
+		}
+		if ($dest_dir != "") {
+			mwexec("/bin/mv " . escapeshellarg($a) . " " . escapeshellarg($dest_dir));
+			return true;
+		}
+		return $a;
+	}
+
+	return false;
+}
 
 function mailscanner_php_install_command() {
-    // spf-tools
-    $url = "https://github.com/jsarenik/spf-tools/archive/master.zip";
-    $plugin_dir = "/usr/local/bin/spf-tools";
-    get_github_plugin($url, "", $plugin_dir);
-    
-    // spamassassin-extremeshok_fromreplyto
-    $glob_parameters = array('/plugins/*pm', '/*cf');
-    $plugins_dir = "/usr/local/etc/mail/spamassassin/plugins";
-    $url = "https://github.com/extremeshok/spamassassin-extremeshok_fromreplyto/archive/master.zip";
-    get_github_plugin($url, $glob_parameters, $plugins_dir);
-    
-    // DecodeShortURLs
-    $glob_parameters = array('/*pm', '/*cf');
-    $url = "https://github.com/smfreegard/DecodeShortURLs/archive/master.zip";
-    get_github_plugin($url, $glob_parameters, $plugins_dir);
-    
-    //pdfid
-    $glob_parameters = array('/p*py','/p*ini');
-    $plugin_dir = "/usr/local/bin";
-    $url = "http://didierstevens.com/files/software/pdfid_v0_2_5.zip";
-    get_github_plugin($url, $glob_parameters, $plugin_dir, "pdfid from didierstevens", "pdfpy" );
-    system ('sed -i \'.bak\' "s@/usr/bin/env python@/usr/local/bin/python2@" /usr/local/bin/p*.py');
-    system("chmod +x /usr/local/bin/p*py");
-    
-    //unofficial sigs for improving malware protection
-    $glob_parameters = array('/clamav-unofficial-*.sh');
-    $plugin_dir = "/usr/local/sbin";
-    $url = "https://github.com/extremeshok/clamav-unofficial-sigs/archive/master.zip";
-    $dir = get_github_plugin($url, $glob_parameters, $plugin_dir);
-    system('sed -i \'.bak\' "s@!/bin/bash@!/usr/local/bin/bash@" /usr/local/sbin/clamav-unofficial-sigs.sh');
-    $plugin_log_dir = "/var/log/clamav-unofficial-sigs";
-    if (!file_exists($plugin_log_dir)) {
-        mkdir ($plugin_log_dir);
-    }
-    $plugin_conf_dir = "/etc/clamav-unofficial-sigs";
-    if (!file_exists($plugin_conf_dir)) {
-        mkdir ($plugin_conf_dir);
-    }
-    copy ("/tmp/github/clamav-unofficial-sigs-master/config/os.pfsense.conf", "/etc/clamav-unofficial-sigs/os.conf");
-    copy ("/tmp/github/clamav-unofficial-sigs-master/config/user.conf", "/etc/clamav-unofficial-sigs/user.conf");
-    system('sed -i \'.bak\' \'s@clam_user=.*@clam_user="postfix"@\' ' . $plugin_conf_dir .'/os.conf');
-    system('sed -i \'.bak\' \'s@#user_configuration.*@user_configuration_complete="yes"@\' ' . $plugin_conf_dir .'/user.conf');
-    sync_package_mailscanner();
+	$absent = array();
+	foreach (mailscanner_optional_plugins() as $path => $label) {
+		if (!file_exists($path)) {
+			$absent[] = $label;
+		}
+	}
+
+	if (!empty($absent)) {
+		log_error("MailScanner: these optional add-ons are not installed and " .
+		    "will not be downloaded automatically: " . implode('; ', $absent) .
+		    ". They run as root from cron, so install them deliberately from " .
+		    "a tagged release you have reviewed. See docs/OPTIONAL-ADDONS.md.");
+	}
+
+	sync_package_mailscanner();
 }
 
 function mailscanner_php_deinstall_command() {
-	exec('/bin/pgrep -f MailScanner',$pgrep_out);
-	if (count($pgreg_out) > 0){
-		mwexec(MAILSCANNER_LOCALBASE. "/etc/rc.d/mailscanner stop");
+	/*
+	 * The original wrote $pgrep_out and then read $pgreg_out. Under PHP 7
+	 * count(null) was a warning and the branch merely never ran; under PHP 8
+	 * it is a fatal TypeError, so removing the package failed outright.
+	 */
+	$pgrep_out = array();
+	exec('/bin/pgrep -f MailScanner', $pgrep_out);
+	if (count($pgrep_out) > 0) {
+		mwexec(MAILSCANNER_LOCALBASE . "/etc/rc.d/mailscanner stop");
 		sleep(1);
-		unlink_if_exists(MAILSCANNER_LOCALBASE. "/etc/rc.d/mailscanner");
-		}
+	}
+	unlink_if_exists(MAILSCANNER_LOCALBASE . "/etc/rc.d/mailscanner");
 }
+
 
 function mailscanner_do_xmlrpc_sync($sync_to_ip,$username,$password,$sync_type,$synctimeout) {
 	global $config, $g;

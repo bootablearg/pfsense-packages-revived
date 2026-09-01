@@ -29,6 +29,8 @@ define('SAMBA_AD_SMBCONF',   '/usr/local/etc/smb4.conf');
 define('SAMBA_AD_KRB5CONF',  '/etc/krb5.conf');
 define('SAMBA_AD_KEYTAB',    '/etc/krb5.keytab');
 define('SAMBA_AD_RCFILE',    '/usr/local/etc/rc.d/samba_ad.sh');
+/* Dropped by install.sh around a forced reinstall; see samba_ad_deinstall(). */
+define('SAMBA_AD_REINSTALL_FLAG', '/tmp/.pfSense-pkg-Samba_AD.reinstall');
 define('SAMBA_AD_PRIVDIR',   '/var/db/samba4/winbindd_privileged');
 define('SAMBA_AD_LOGDIR',    '/var/log/samba4');
 define('SAMBA_AD_RUNDIR',    '/var/run/samba4');
@@ -379,9 +381,29 @@ function samba_ad_write_smbconf($settings) {
 function samba_ad_write_rcfile($settings) {
 	$want_smbd = !empty($settings['enable_smbd']);
 
+	/*
+	 * Started through daemon(8) rather than with the daemons' own -D flag.
+	 *
+	 * pkg terminates whatever is left in the process group of a package's
+	 * install script when that script finishes. winbindd -D forks but stays in
+	 * that group, so installing or reinstalling the package started winbindd
+	 * and then killed it two seconds later -- the install log said everything
+	 * had gone fine and the service was simply not running.
+	 *
+	 * daemon(8) puts the process in a session of its own, out of reach of that
+	 * cleanup. The daemons run with -F (foreground) so daemon(8) can supervise
+	 * them, plus --no-process-group: daemon(8) has already called setsid(), and
+	 * without this Samba tries to create a session of its own and dies with
+	 * "exit_daemon: daemon failed to start: Failed to create session".
+	 */
+	$launch = function ($binary) {
+		return '/usr/sbin/daemon -f ' . $binary
+			. ' -F --no-process-group -s ' . SAMBA_AD_SMBCONF;
+	};
+
 	$start = array(
 		'mkdir -p ' . SAMBA_AD_RUNDIR . ' ' . SAMBA_AD_LOGDIR,
-		'/usr/local/sbin/winbindd -D -s ' . SAMBA_AD_SMBCONF,
+		$launch('/usr/local/sbin/winbindd'),
 	);
 
 	$stop = array(
@@ -389,8 +411,8 @@ function samba_ad_write_rcfile($settings) {
 	);
 
 	if ($want_smbd) {
-		$start[] = '/usr/local/sbin/smbd -D -s ' . SAMBA_AD_SMBCONF;
-		$start[] = '/usr/local/sbin/nmbd -D -s ' . SAMBA_AD_SMBCONF;
+		$start[] = $launch('/usr/local/sbin/smbd');
+		$start[] = $launch('/usr/local/sbin/nmbd');
 		array_unshift($stop, '/bin/pkill -x nmbd 2>/dev/null');
 		array_unshift($stop, '/bin/pkill -x smbd 2>/dev/null');
 	}
@@ -566,6 +588,21 @@ function samba_ad_prepare_privileged_dir() {
  * so an unrelated process merely mentioning winbindd in its arguments does not
  * produce a false positive.
  */
+/*
+ * Is the machine account still valid for the domain?
+ *
+ * `net ads testjoin` answers with the machine's own Kerberos credentials, so it
+ * needs neither an administrator password nor winbindd to be running.
+ */
+function samba_ad_testjoin() {
+	$out = array();
+	$rc = 0;
+	exec(escapeshellarg(SAMBA_AD_NET) . ' ads testjoin -s '
+		. escapeshellarg(SAMBA_AD_SMBCONF) . ' 2>&1', $out, $rc);
+
+	return ($rc === 0 && stripos(implode("\n", $out), 'Join is OK') !== false);
+}
+
 function samba_ad_is_running() {
 	$out = array();
 	$rc = 0;
@@ -574,9 +611,32 @@ function samba_ad_is_running() {
 }
 
 function samba_ad_stop_service() {
-	if (file_exists(SAMBA_AD_RCFILE)) {
-		mwexec(escapeshellarg(SAMBA_AD_RCFILE) . ' stop');
+	if (!file_exists(SAMBA_AD_RCFILE)) {
+		return;
 	}
+
+	mwexec(escapeshellarg(SAMBA_AD_RCFILE) . ' stop');
+
+	/*
+	 * The rc script returns as soon as it has signalled the daemons, not once
+	 * they are gone. Joining while a winbindd is still shutting down produces
+	 * an intermittent and thoroughly misleading failure:
+	 *
+	 *   Failed to join domain: failed to find DC for domain <credentials file>
+	 *   - A domain controller for this domain was not found.
+	 *
+	 * The DC is reachable and the credentials are fine; the previous process
+	 * simply still holds the domain state. Wait for it to actually exit.
+	 */
+	for ($i = 0; $i < 10; $i++) {
+		if (!samba_ad_is_running()) {
+			return;
+		}
+		usleep(500000);
+	}
+
+	log_error('Samba AD: winbindd is still running five seconds after being '
+		. 'asked to stop.');
 }
 
 /*
@@ -593,10 +653,20 @@ function samba_ad_start_service() {
 		return false;
 	}
 
-	mwexec(escapeshellarg(SAMBA_AD_RCFILE) . ' start');
+	/*
+	 * Capture the rc script's own output. mwexec() reports whether the script
+	 * exited cleanly, which says nothing about whether the daemon survived --
+	 * and when it does not, the reason is almost always in this output.
+	 */
+	$out = array();
+	$rc = 0;
+	exec(escapeshellarg(SAMBA_AD_RCFILE) . ' start 2>&1', $out, $rc);
+	log_error('Samba AD: starting winbindd (rc=' . $rc . ')'
+		. (empty($out) ? '' : ': ' . implode(' ', $out)));
 
 	for ($i = 0; $i < 5; $i++) {
 		if (samba_ad_is_running()) {
+			log_error('Samba AD: winbindd is running.');
 			return true;
 		}
 		sleep(1);
@@ -637,10 +707,29 @@ function samba_ad_sync() {
 	$joined = $result[0];
 
 	if (!$joined) {
-		/* Deliberately do not start the daemons after a failed join. A winbindd
-		 * that cannot reach its domain produces confusing partial failures
-		 * downstream; failing loudly here is easier to diagnose. */
-		log_error('Samba AD: daemons not started because the domain join failed.');
+		/*
+		 * A failed join is not the same as not being in the domain. On a
+		 * reinstall, or after a transient DC hiccup, the machine account is
+		 * usually still perfectly valid -- and refusing to start winbindd then
+		 * would take a working firewall off the directory for no reason.
+		 *
+		 * So ask: is the existing membership still good? If it is, start the
+		 * daemons and say what happened. Only give up when there is genuinely
+		 * nothing to run against, because a winbindd that cannot reach its
+		 * domain produces confusing partial failures downstream.
+		 */
+		if (samba_ad_testjoin()) {
+			log_error('Samba AD: the join attempt failed, but the existing '
+				. 'domain membership is still valid, so the daemons were '
+				. 'started anyway. Join output: ' . $result[1]);
+			samba_ad_create_keytab($settings);
+			samba_ad_link_squid_helper();
+			samba_ad_start_service();
+			return;
+		}
+
+		log_error('Samba AD: daemons not started because the domain join failed '
+			. 'and the existing membership is not valid either.');
 		return;
 	}
 
@@ -712,8 +801,25 @@ function samba_ad_install() {
 function samba_ad_deinstall() {
 	$settings = samba_ad_get_config();
 
+	/*
+	 * pkg runs this hook on the way out of an upgrade as well as a removal:
+	 * reinstalling means DEINSTALL of the old version, then INSTALL of the
+	 * new one. Leaving the domain in that case would drop the machine
+	 * account and break authentication in the middle of what the operator
+	 * asked for as a repair. install.sh drops this marker around a forced
+	 * reinstall so the two can be told apart.
+	 */
+	$reinstalling = file_exists(SAMBA_AD_REINSTALL_FLAG);
+	if ($reinstalling) {
+		log_error('Samba AD: reinstalling, so the domain membership is left '
+			. 'in place. Use the Package Manager or "install.sh remove" to '
+			. 'remove the package and leave the domain.');
+	}
+
 	/* Best effort: drop the machine account if we still hold credentials. */
-	if (!empty($settings['username']) && !empty($settings['password'])) {
+	if ($reinstalling) {
+		/* nothing to do: the machine account must survive the upgrade */
+	} else if (!empty($settings['username']) && !empty($settings['password'])) {
 		$authfile = samba_ad_write_authfile($settings);
 		if ($authfile !== false) {
 			mwexec(sprintf(
@@ -732,7 +838,9 @@ function samba_ad_deinstall() {
 	samba_ad_stop_service();
 
 	@unlink(SAMBA_AD_RCFILE);
-	@unlink(SAMBA_AD_SMBCONF);
+	if (!$reinstalling) {
+		@unlink(SAMBA_AD_SMBCONF);
+	}
 
 	/* Restore whatever krb5.conf was in place before we took it over. */
 	if (file_exists(SAMBA_AD_KRB5CONF . '.before-samba-ad')) {
@@ -744,24 +852,17 @@ function samba_ad_deinstall() {
 	}
 
 	/*
-	 * Remove the package's own files.
+	 * The package's own files are not deleted here.
 	 *
-	 * When the package is deleted from System > Package Manager, pfSense calls
-	 * delete_package_xml(), which unregisters the menu and service but does not
-	 * delete files -- that is normally pkg's job, and there is no pkg here.
-	 * Without this, uninstalling from the GUI would leave orphaned files behind
-	 * in /usr/local/pkg. Doing it here means both uninstall paths, GUI and
-	 * install.sh, end up in the same state.
+	 * An earlier version of this package was not a real pfSense-pkg, so
+	 * nothing owned its files and this hook had to unlink them by hand.
+	 * It is a proper package now: pkg tracks every file and removes them
+	 * after this hook returns. Deleting them here as well would mean
+	 * unlinking samba_ad.inc while it is the file currently executing.
+	 *
+	 * Only state that pkg does not know about is cleaned up above.
 	 */
-	foreach (array(
-		'/usr/local/pkg/samba_ad.inc',
-		'/usr/local/pkg/samba_ad.xml',
-		'/usr/local/pkg/squid_ad_patch.php',
-		'/usr/local/www/diag_samba_ad.php',
-		'/usr/local/etc/samba_ad.installed',
-	) as $leftover) {
-		@unlink($leftover);
-	}
+	@unlink('/usr/local/etc/samba_ad.installed');
 
 	log_error('Samba AD: package removed.');
 }

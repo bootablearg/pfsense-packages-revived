@@ -148,9 +148,15 @@ function dkim_sake_key_from_disk($domain, $gui_id) {
 function check_dkim_config () {
  global $config;
  $postfix_config = $config['installedpackages']['postfix']['config'][0];
+        /*
+         * Initialised here, not only inside the branch below: on a fresh
+         * install there are no domains yet, so this stayed null and the
+         * sizeof() calls further down threw a fatal TypeError under PHP 8.
+         * PHP 7 merely warned and carried on, which is why it went unnoticed.
+         */
+        $dkim_domains = array();
         if (is_array($config['installedpackages']['postfixdomainsng'])) {
                 $postfix_domains=$config['installedpackages']['postfixdomainsng']['config'];
-                $dkim_domains = array();
                 foreach ($postfix_domains as $id => $domain) {
                         // var_dump($domain);
                         if ($domain['dkim'] != 'no' ) {
@@ -168,7 +174,10 @@ function check_dkim_config () {
                 //var_dump($dkim_bits);
                 //exit;
                 //Include Mynetwork hosts on DKIM Internal hosts
-                if (is_array($config['installedpackages']['postfixacl']['config']) && sizeof($dkim_domains > 0)){
+                /* was: sizeof($dkim_domains > 0) -- the parenthesis sat in the
+                 * wrong place, so this called sizeof() on a boolean. Harmless
+                 * noise under PHP 7, a fatal TypeError under PHP 8. */
+                if (is_array($config['installedpackages']['postfixacl']['config']) && sizeof($dkim_domains) > 0){
                         $mynetwork = preg_replace( "/\r/" , "" , dkim_text_area_decode($config['installedpackages']['postfixacl']['config'][0]['mynetworks']));
                         $myhosts = explode( "\n" , $mynetwork);
                         foreach ($myhosts as $myhost) {

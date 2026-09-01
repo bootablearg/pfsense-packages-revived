@@ -46,22 +46,23 @@ paquete antes de instalar: cada uno tiene sus propios requisitos y advertencias.
 
 ## Desinstalación
 
-Todos los paquetes se registran en **System → Package Manager**, así que se
-pueden quitar desde la interfaz como cualquier otro. pfSense detecta que no hay
-un `pfSense-pkg-*` detrás y recurre a `delete_package_xml()`, que desregistra el
-menú, el servicio y la entrada del paquete.
+Cada instalador construye un paquete `pfSense-pkg-*` de verdad y lo instala, así
+que estos se comportan como cualquier otro paquete de pfSense: aparecen en
+**System → Package Manager → Installed Packages** y el ícono de la papelera los
+quita del todo — archivos, entradas de menú, servicio, privilegios y la entrada
+en `config.xml`.
 
-Una salvedad: ese camino **no** borra los archivos de `/usr/local/pkg` — en un
-paquete normal eso lo hace `pkg`, y acá no hay `pkg`. `samba-ad` se limpia solo
-en su propio hook de desinstalación; en los paquetes que van sin modificar
-desde su origen quedan algunos archivos. Son inertes una vez que el menú
-desaparece, pero si querés una desinstalación limpia, usá el instalador:
+También se va lo que el instalador haya traído del repositorio de FreeBSD. Lo
+que ya estaba en el equipo antes queda intacto.
+
+Desde la línea de comandos hace lo mismo:
 
 ```sh
 ./install.sh remove
 ```
 
-que deshace todo, archivos incluidos.
+Cómo está armado eso, y las varias formas en que puede fallar en silencio, está
+documentado en [docs/PACKAGING.md](docs/PACKAGING.md).
 
 ## Licencias
 

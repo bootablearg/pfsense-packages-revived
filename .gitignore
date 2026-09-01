@@ -31,3 +31,7 @@ _referencia*/
 
 # Large reference documents
 *.pdf
+
+# Blacklist archive downloaded at runtime, not source.
+shallalist.tar.gz
+se-*.zip
