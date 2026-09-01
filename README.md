@@ -35,14 +35,25 @@ added, and the per-package README for install instructions.
 
 ## Install
 
-Each package installs on its own. From the pfSense shell as root:
+Each package installs on its own. From the pfSense shell as root, replacing
+`<package>` with one of the directory names from the table above — `samba-ad`,
+`wpad`, `e2guardian`, `sarg`, `squidanalyzer`, `speedtest`, `ipguard`,
+`postfix` or `mailscanner`:
 
 ```sh
-fetch -q -o - https://raw.githubusercontent.com/bootablearg/pfsense-packages-revived/main/samba-ad/install.sh | sh -s check
+fetch -q -o - https://raw.githubusercontent.com/bootablearg/pfsense-packages-revived/main/<package>/install.sh | sh -s check
 ```
 
-`check` reports what it would do and changes nothing. Read each package's
-README before installing — they carry their own requirements and caveats.
+So for e2guardian, that is:
+
+```sh
+fetch -q -o - https://raw.githubusercontent.com/bootablearg/pfsense-packages-revived/main/e2guardian/install.sh | sh -s check
+```
+
+Each installer takes `check`, `install`, `remove` or `status`. **`check`
+reports what it would do and changes nothing** — start there. Read the
+package's own README before installing: they carry their own requirements and
+caveats, and for `ipguard` in particular the caveats matter.
 
 ## Uninstalling
 
