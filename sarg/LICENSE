@@ -1,0 +1,52 @@
+Copyright (c) 2007 Joao Henrique F. Freitas
+Copyright (c) 2012-2024 Marcello Coutinho
+Copyright (c) 2015 ESF, LLC
+Copyright (c) 2026 pfsense-packages-revived contributors
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+STRICT LIABILITY, OR TORT ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+---
+
+NOTICE
+
+This work derives from the "sarg" package for pfSense software in
+Unofficial-pfSense-packages:
+
+    https://github.com/marcelloc/Unofficial-pfSense-packages
+
+The original copyright notices are retained above as the license requires. Note
+that this package was at one point part of pfSense itself -- hence the ESF, LLC
+notice (Electric Sheep Fencing, the company behind pfSense before Netgate).
+
+Changes made to the original:
+
+  - An installer (install.sh) was added. It obtains the sarg binary from
+    FreeBSD's official package repository rather than from a third-party pkg
+    repository, and registers the package on pfSense 2.9.
+
+  - Documentation (README.md, LEEME.md, docs/VERIFY.md) was added.
+
+The package's own PHP and XML files are carried unmodified: they were verified
+to run correctly on pfSense 2.9 with PHP 8.5.
+
+Sarg itself is not distributed with this package. It is installed from
+FreeBSD's package repository at install time and is licensed under the GNU
+General Public License, version 2.

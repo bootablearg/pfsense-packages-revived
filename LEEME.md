@@ -24,6 +24,8 @@ interfaz a las APIs actuales de PHP y pfSense, e instalar los binarios desde el
 |---|---|---|
 | **[samba-ad](samba-ad/)** | Une el firewall a un dominio de Active Directory (Samba/winbind). Integración opcional con Squid con inicio de sesión único. | Verificado de punta a punta en CE 2.9.0 contra un AD real |
 | **[e2guardian](e2guardian/)** | Filtrado de contenido web: inspecciona el cuerpo de la respuesta, frases y tipos MIME, con políticas por grupo. | Instala, genera configuración y arranca en CE 2.9.0; faltan revisar las pantallas |
+| **[sarg](sarg/)** | Reportes detallados de navegación de Squid por usuario, sitio y fecha. | Instala y se registra en CE 2.9.0; faltan reportes con tráfico real |
+| **[squidanalyzer](squidanalyzer/)** | Reportes de Squid más livianos, orientados a gráficos. | Instala y se registra en CE 2.9.0; faltan reportes con tráfico real |
 
 Hay más en camino. En [docs/PATTERN.md](docs/PATTERN.md) está documentado cómo
 se agrega un paquete; las instrucciones de instalación están en el README de
@@ -50,6 +52,8 @@ de autores distintos con términos distintos:
 |---|---|---|
 | [samba-ad](samba-ad/LICENSE) | BSD 2-Clause | pf2ad, © 2013-2016 Luiz Gustavo S. Costa |
 | [e2guardian](e2guardian/LICENSE) | Apache-2.0 | Unofficial-pfSense-packages, © 2015-2017 Marcello Coutinho |
+| [sarg](sarg/LICENSE) | BSD 2-Clause | © 2007 Joao Henrique F. Freitas, © 2012-2024 Marcello Coutinho, © 2015 ESF, LLC |
+| [squidanalyzer](squidanalyzer/LICENSE) | Apache-2.0 | © 2016 Luiz Gustavo, © 2017 Marcello Coutinho |
 
 Los avisos de copyright originales se conservan tal como esas licencias lo
 exigen. Si bifurcás este repositorio, mantenelos.

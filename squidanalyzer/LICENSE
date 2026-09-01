@@ -1,0 +1,43 @@
+Copyright (c) 2016 Luiz Gustavo <me@luizgustavo.pro.br>
+Copyright (c) 2017 Marcello Coutinho
+Copyright (c) 2026 pfsense-packages-revived contributors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+---
+
+NOTICE
+
+This work derives from the "squidanalyzer" package for pfSense software in
+Unofficial-pfSense-packages by Marcello Coutinho, itself based on work by
+Luiz Gustavo:
+
+    https://github.com/marcelloc/Unofficial-pfSense-packages
+
+The original is Apache-2.0 licensed and its copyright notices are retained
+above, as Section 4 of the License requires.
+
+As required by Section 4(b), the changes made to the original are:
+
+  - An installer (install.sh) was added. It obtains the squidanalyzer binary
+    from FreeBSD's official package repository rather than from a third-party
+    pkg repository, and registers the package on pfSense 2.9.
+
+  - Documentation (README.md, LEEME.md, docs/VERIFY.md) was added.
+
+The package's own PHP and XML files are carried unmodified: they were verified
+to run correctly on pfSense 2.9 with PHP 8.5.
+
+SquidAnalyzer itself is not distributed with this package. It is installed from
+FreeBSD's package repository at install time and is licensed under the GNU
+General Public License, version 3.
