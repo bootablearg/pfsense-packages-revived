@@ -205,6 +205,74 @@ remove_files() {
 # without checking that those keys existed. On PHP 8 that iterates nothing and
 # emits a warning, so registration silently did nothing on a clean system.
 
+# Register the package with pfSense's Package Manager.
+#
+# Without this entry the package works, but never appears under
+# System > Package Manager > Installed Packages, so it cannot be uninstalled
+# from the GUI -- only by running this script with "remove".
+#
+# pfSense's uninstall_package() checks whether a real pfSense-pkg-<name> exists;
+# when it does not, as here, it falls back to delete_package_xml(), which reads
+# the <menu>, <service> and deinstall command out of the package XML and undoes
+# them. That is exactly the behaviour we want, so registering here is safe.
+register_package() {
+	log "Registering with the Package Manager"
+
+	/usr/local/sbin/pfSsh.php <<PKGEOF
+\$pkgs = function_exists('config_get_path')
+	? config_get_path('installedpackages/package', [])
+	: (\$config['installedpackages']['package'] ?? []);
+if (!is_array(\$pkgs)) { \$pkgs = []; }
+
+\$found = false;
+foreach (\$pkgs as \$p) {
+	if (isset(\$p['name']) && \$p['name'] === 'sambaad') { \$found = true; break; }
+}
+if (!\$found) {
+	\$pkgs[] = [
+		'name'              => 'sambaad',
+		'descr'             => 'Joins the firewall to an Active Directory domain using Samba winbind.',
+		'website'           => 'https://github.com/bootablearg/pfsense-packages-revived',
+		'version'           => '1.0.0',
+		'configurationfile' => 'samba_ad.xml',
+	];
+}
+
+if (function_exists('config_set_path')) {
+	config_set_path('installedpackages/package', \$pkgs);
+} else {
+	\$config['installedpackages']['package'] = \$pkgs;
+}
+write_config('Samba AD: register with Package Manager');
+exec;
+exit
+PKGEOF
+}
+
+unregister_package() {
+	log "Unregistering from the Package Manager"
+
+	/usr/local/sbin/pfSsh.php <<PKGEOF
+\$pkgs = function_exists('config_get_path')
+	? config_get_path('installedpackages/package', [])
+	: (\$config['installedpackages']['package'] ?? []);
+if (!is_array(\$pkgs)) { \$pkgs = []; }
+
+\$pkgs = array_values(array_filter(\$pkgs, function (\$p) {
+	return !(isset(\$p['name']) && \$p['name'] === 'sambaad');
+}));
+
+if (function_exists('config_set_path')) {
+	config_set_path('installedpackages/package', \$pkgs);
+} else {
+	\$config['installedpackages']['package'] = \$pkgs;
+}
+write_config('Samba AD: unregister from Package Manager');
+exec;
+exit
+PKGEOF
+}
+
 register_gui() {
 	log "Registering menu entry and service"
 
@@ -397,6 +465,7 @@ do_install() {
 
 	install_files
 	register_gui
+	register_package
 	run_install_hook
 
 	date "+%Y-%m-%dT%H:%M:%S%z" > "${STAMP}"
@@ -412,6 +481,7 @@ do_remove() {
 
 	run_deinstall_hook
 	unregister_gui
+	unregister_package
 	remove_files
 
 	rm -f "${STAMP}"

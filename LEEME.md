@@ -44,6 +44,25 @@ fetch -q -o - https://raw.githubusercontent.com/bootablearg/pfsense-packages-rev
 `check` informa qué haría y no modifica nada. Conviene leer el README del
 paquete antes de instalar: cada uno tiene sus propios requisitos y advertencias.
 
+## Desinstalación
+
+Todos los paquetes se registran en **System → Package Manager**, así que se
+pueden quitar desde la interfaz como cualquier otro. pfSense detecta que no hay
+un `pfSense-pkg-*` detrás y recurre a `delete_package_xml()`, que desregistra el
+menú, el servicio y la entrada del paquete.
+
+Una salvedad: ese camino **no** borra los archivos de `/usr/local/pkg` — en un
+paquete normal eso lo hace `pkg`, y acá no hay `pkg`. `samba-ad` se limpia solo
+en su propio hook de desinstalación; en los paquetes que van sin modificar
+desde su origen quedan algunos archivos. Son inertes una vez que el menú
+desaparece, pero si querés una desinstalación limpia, usá el instalador:
+
+```sh
+./install.sh remove
+```
+
+que deshace todo, archivos incluidos.
+
 ## Licencias
 
 **Cada paquete conserva la licencia de la obra de la que deriva**, en su propio

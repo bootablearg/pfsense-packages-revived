@@ -103,6 +103,74 @@ remove_files() {
 	for _f in ${FILES_PKG}; do rm -f "${PKG_DEST}/${_f}"; done
 }
 
+# Register the package with pfSense's Package Manager.
+#
+# Without this entry the package works, but never appears under
+# System > Package Manager > Installed Packages, so it cannot be uninstalled
+# from the GUI -- only by running this script with "remove".
+#
+# pfSense's uninstall_package() checks whether a real pfSense-pkg-<name> exists;
+# when it does not, as here, it falls back to delete_package_xml(), which reads
+# the <menu>, <service> and deinstall command out of the package XML and undoes
+# them. That is exactly the behaviour we want, so registering here is safe.
+register_package() {
+	log "Registering with the Package Manager"
+
+	/usr/local/sbin/pfSsh.php <<PKGEOF
+\$pkgs = function_exists('config_get_path')
+	? config_get_path('installedpackages/package', [])
+	: (\$config['installedpackages']['package'] ?? []);
+if (!is_array(\$pkgs)) { \$pkgs = []; }
+
+\$found = false;
+foreach (\$pkgs as \$p) {
+	if (isset(\$p['name']) && \$p['name'] === 'sarg') { \$found = true; break; }
+}
+if (!\$found) {
+	\$pkgs[] = [
+		'name'              => 'sarg',
+		'descr'             => 'Squid Analysis Report Generator: detailed browsing reports.',
+		'website'           => 'https://github.com/bootablearg/pfsense-packages-revived',
+		'version'           => '1.0.0',
+		'configurationfile' => 'sarg.xml',
+	];
+}
+
+if (function_exists('config_set_path')) {
+	config_set_path('installedpackages/package', \$pkgs);
+} else {
+	\$config['installedpackages']['package'] = \$pkgs;
+}
+write_config('Sarg Reports: register with Package Manager');
+exec;
+exit
+PKGEOF
+}
+
+unregister_package() {
+	log "Unregistering from the Package Manager"
+
+	/usr/local/sbin/pfSsh.php <<PKGEOF
+\$pkgs = function_exists('config_get_path')
+	? config_get_path('installedpackages/package', [])
+	: (\$config['installedpackages']['package'] ?? []);
+if (!is_array(\$pkgs)) { \$pkgs = []; }
+
+\$pkgs = array_values(array_filter(\$pkgs, function (\$p) {
+	return !(isset(\$p['name']) && \$p['name'] === 'sarg');
+}));
+
+if (function_exists('config_set_path')) {
+	config_set_path('installedpackages/package', \$pkgs);
+} else {
+	\$config['installedpackages']['package'] = \$pkgs;
+}
+write_config('Sarg Reports: unregister from Package Manager');
+exec;
+exit
+PKGEOF
+}
+
 register_gui() {
 	log "Registering menu entry"
 	/usr/local/sbin/pfSsh.php <<'PHPEOF'
@@ -215,6 +283,7 @@ do_install() {
 
 	install_files
 	register_gui
+	register_package
 	run_sync
 	date "+%Y-%m-%dT%H:%M:%S%z" > "${STAMP}"
 
@@ -235,6 +304,7 @@ EOT
 do_remove() {
 	require_root
 	unregister_gui
+	unregister_package
 	remove_files
 	rm -f "${STAMP}"
 	log "Package removed. The sarg binary and generated reports were left in place."

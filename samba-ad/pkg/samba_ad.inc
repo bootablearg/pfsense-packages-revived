@@ -743,5 +743,25 @@ function samba_ad_deinstall() {
 		@unlink(SAMBA_AD_SQUID_HELPER);
 	}
 
+	/*
+	 * Remove the package's own files.
+	 *
+	 * When the package is deleted from System > Package Manager, pfSense calls
+	 * delete_package_xml(), which unregisters the menu and service but does not
+	 * delete files -- that is normally pkg's job, and there is no pkg here.
+	 * Without this, uninstalling from the GUI would leave orphaned files behind
+	 * in /usr/local/pkg. Doing it here means both uninstall paths, GUI and
+	 * install.sh, end up in the same state.
+	 */
+	foreach (array(
+		'/usr/local/pkg/samba_ad.inc',
+		'/usr/local/pkg/samba_ad.xml',
+		'/usr/local/pkg/squid_ad_patch.php',
+		'/usr/local/www/diag_samba_ad.php',
+		'/usr/local/etc/samba_ad.installed',
+	) as $leftover) {
+		@unlink($leftover);
+	}
+
 	log_error('Samba AD: package removed.');
 }

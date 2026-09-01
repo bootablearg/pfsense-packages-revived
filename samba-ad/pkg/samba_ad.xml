@@ -48,6 +48,24 @@
 		</tab>
 	</tabs>
 
+	<!--
+		Declared here, not only registered by the installer, so that pfSense's
+		own uninstall path (delete_package_xml) knows what to remove when the
+		package is deleted from System > Package Manager.
+	-->
+	<menu>
+		<name>Samba AD</name>
+		<section>Services</section>
+		<url>/pkg_edit.php?xml=samba_ad.xml&amp;id=0</url>
+	</menu>
+
+	<service>
+		<name>sambaad</name>
+		<rcfile>samba_ad.sh</rcfile>
+		<executable>winbindd</executable>
+		<description>Samba AD domain membership (winbindd)</description>
+	</service>
+
 	<fields>
 		<field>
 			<fielddescr>Enable</fielddescr>
