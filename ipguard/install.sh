@@ -1,81 +1,5 @@
 #!/bin/sh
-#
-# install.sh -- installer for the pfSense "Mailscanner" package.
-#
-# Copyright (c) 2011-2019 Marcello Coutinho
-# Copyright (c) 2026 pfsense-packages-revived contributors
-#
-# Licensed under the Apache License, Version 2.0. See LICENSE.
-#
-# Derived from the mailscanner package in
-# https://github.com/marcelloc/Unofficial-pfSense-packages (pkg-mailscanner),
-# ported to pfSense 2.9 / PHP 8.5.
-#
-# MailScanner wraps SpamAssassin and ClamAV into a mail-filtering gateway. It
-# needs an MTA underneath -- the postfix package in this repository provides it.
-#
-# NOTE: FreeBSD ships MailScanner 5.3.4 while upstream is at 5.5.x, and the
-# project's development has slowed relative to newer filtering stacks. It also
-# pulls in about 93 MiB. Weigh that before deploying it.
-#
-# The binary comes from FreeBSD's official package repository: no private
-# repository, no key. See ../docs/PATTERN.md for the method and its caveats.#
-# Packaging: this builds a real pfSense-pkg-* package and installs it from a
-# temporary local repository, so it appears under System > Package Manager and
-# the trash icon removes it -- files, menu entries, service and all. See
-# ../docs/PACKAGING.md for why that indirection is necessary.#
-# Packaging: this builds a real pfSense-pkg-* package and installs it from a
-# temporary local repository, so it appears under System > Package Manager and
-# the trash icon removes it -- files, menu entries, service and all. See
-# ../docs/PACKAGING.md for why that indirection is necessary.#
-# Packaging: this builds a real pfSense-pkg-* package and installs it from a
-# temporary local repository, so it appears under System > Package Manager and
-# the trash icon removes it -- files, menu entries, service and all. See
-# ../docs/PACKAGING.md for why that indirection is necessary.#
-# Packaging: this builds a real pfSense-pkg-* package and installs it from a
-# temporary local repository, so it appears under System > Package Manager and
-# the trash icon removes it -- files, menu entries, service and all. See
-# ../docs/PACKAGING.md for why that indirection is necessary.#
-# Packaging: this builds a real pfSense-pkg-* package and installs it from a
-# temporary local repository, so it appears under System > Package Manager and
-# the trash icon removes it -- files, menu entries, service and all. See
-# ../docs/PACKAGING.md for why that indirection is necessary.#
-# Packaging: this builds a real pfSense-pkg-* package and installs it from a
-# temporary local repository, so it appears under System > Package Manager and
-# the trash icon removes it -- files, menu entries, service and all. See
-# ../docs/PACKAGING.md for why that indirection is necessary.#
-# Packaging: this builds a real pfSense-pkg-* package and installs it from a
-# temporary local repository, so it appears under System > Package Manager and
-# the trash icon removes it -- files, menu entries, service and all. See
-# ../docs/PACKAGING.md for why that indirection is necessary.#
-# Packaging: this builds a real pfSense-pkg-* package and installs it from a
-# temporary local repository, so it appears under System > Package Manager and
-# the trash icon removes it -- files, menu entries, service and all. See
-# ../docs/PACKAGING.md for why that indirection is necessary.#
-# Packaging: this builds a real pfSense-pkg-* package and installs it from a
-# temporary local repository, so it appears under System > Package Manager and
-# the trash icon removes it -- files, menu entries, service and all. See
-# ../docs/PACKAGING.md for why that indirection is necessary.#
-# Packaging: this builds a real pfSense-pkg-* package and installs it from a
-# temporary local repository, so it appears under System > Package Manager and
-# the trash icon removes it -- files, menu entries, service and all. See
-# ../docs/PACKAGING.md for why that indirection is necessary.#
-# Packaging: this builds a real pfSense-pkg-* package and installs it from a
-# temporary local repository, so it appears under System > Package Manager and
-# the trash icon removes it -- files, menu entries, service and all. See
-# ../docs/PACKAGING.md for why that indirection is necessary.#
-# Packaging: this builds a real pfSense-pkg-* package and installs it from a
-# temporary local repository, so it appears under System > Package Manager and
-# the trash icon removes it -- files, menu entries, service and all. See
-# ../docs/PACKAGING.md for why that indirection is necessary.#
-# Packaging: this builds a real pfSense-pkg-* package and installs it from a
-# temporary local repository, so it appears under System > Package Manager and
-# the trash icon removes it -- files, menu entries, service and all. See
-# ../docs/PACKAGING.md for why that indirection is necessary.#
-# Packaging: this builds a real pfSense-pkg-* package and installs it from a
-# temporary local repository, so it appears under System > Package Manager and
-# the trash icon removes it -- files, menu entries, service and all. See
-# ../docs/PACKAGING.md for why that indirection is necessary.#
+n#
 # Packaging: this builds a real pfSense-pkg-* package and installs it from a
 # temporary local repository, so it appears under System > Package Manager and
 # the trash icon removes it -- files, menu entries, service and all. See
@@ -87,20 +11,20 @@ set -u
 # Everything specific to this package lives in this block. The rest of the
 # script is identical across every package in the repository.
 
-PKG_SHORT="MailScanner"			# -> pfSense-pkg-MailScanner
-PKG_TITLE="MailScanner"			# name shown in the Package Manager
+PKG_SHORT="IPguard"			# -> pfSense-pkg-IPguard
+PKG_TITLE="IPguard"			# name shown in the Package Manager
 PKG_VERSION="1.1.0"
-PKG_CATEGORY="mail"
-PKG_LICENSE="APACHE20"
-PKG_COMMENT="Mail filtering with SpamAssassin and ClamAV"
-PKG_DESCR="Wraps SpamAssassin and ClamAV into a mail-filtering gateway; needs an MTA underneath, such as the postfix package."
-PKG_CONFIGFILE="mailscanner.xml"
-SRC_DIRNAME="mailscanner"
+PKG_CATEGORY="net"
+PKG_LICENSE="BSD2CLAUSE"
+PKG_COMMENT="Keeps unlisted hosts off a LAN segment by ARP spoofing"
+PKG_DESCR="Enforces a list of permitted MAC/IP pairs on a segment; hosts that are not on the list are denied the ability to communicate."
+PKG_CONFIGFILE="ipguard.xml"
+SRC_DIRNAME="ipguard"
 
 # FreeBSD packages this one needs. Installed first, from FreeBSD's official
 # repository, then recorded as dependencies of our package so that removing
 # ours takes them with it.
-BIN_DEPS="MailScanner"
+BIN_DEPS="ipguard"
 
 # "no" for a package that needs nothing beyond what pfSense already ships, so
 # an empty BIN_DEPS is a fact rather than a failed lookup.
@@ -109,15 +33,12 @@ DEPS_REQUIRED="yes"
 # Names this package used in earlier versions of this repository. Their stale
 # config.xml entries are purged on install so the Package Manager does not end
 # up listing the same package twice.
-LEGACY_NAMES="mailscanner"
+LEGACY_NAMES=""
 
-FILES_PKG="mailscanner.conf.template mailscanner.inc mailscanner.xml
-	mailscanner_alerts.xml mailscanner_antispam.xml
-	mailscanner_antivirus.xml mailscanner_attachments.xml
-	mailscanner_content.xml mailscanner_report.xml mailscanner_sync.xml"
-FILES_WWW="mailscanner_about.php shortcuts/pkg_mailscanner.inc"
-FILES_PRIV="mailscanner.priv.inc"
-FILES_BIN="sa-updater-custom-channels.sh sa-wrapper.pl"
+FILES_PKG="ipguard.inc ipguard.xml ipguard_sync.xml"
+FILES_WWW="shortcuts/pkg_ipguard.inc"
+FILES_PRIV="ipguard.priv.inc"
+FILES_BIN=""
 
 # --------------------------------------------------------------- constants ---
 

@@ -89,6 +89,14 @@
 # Packaging: this builds a real pfSense-pkg-* package and installs it from a
 # temporary local repository, so it appears under System > Package Manager and
 # the trash icon removes it -- files, menu entries, service and all. See
+# ../docs/PACKAGING.md for why that indirection is necessary.#
+# Packaging: this builds a real pfSense-pkg-* package and installs it from a
+# temporary local repository, so it appears under System > Package Manager and
+# the trash icon removes it -- files, menu entries, service and all. See
+# ../docs/PACKAGING.md for why that indirection is necessary.#
+# Packaging: this builds a real pfSense-pkg-* package and installs it from a
+# temporary local repository, so it appears under System > Package Manager and
+# the trash icon removes it -- files, menu entries, service and all. See
 # ../docs/PACKAGING.md for why that indirection is necessary.
 
 set -u

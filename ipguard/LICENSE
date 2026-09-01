@@ -1,0 +1,58 @@
+Copyright (c) 2012-2017 Marcello Coutinho
+Copyright (c) 2015 ESF, LLC
+Copyright (c) 2026 pfsense-packages-revived contributors
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice,
+   this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+---
+
+NOTICE
+
+This work derives from the "ipguard" package for pfSense software by Marcello
+Coutinho, distributed as part of Unofficial-pfSense-packages:
+
+    https://github.com/marcelloc/Unofficial-pfSense-packages
+
+Changes made to the original:
+
+  * ipguard.inc: $new_config is initialised before it is used. It was declared
+    only inside a branch that a fresh install never enters, so count() received
+    null and aborted the installation outright under PHP 8.
+
+  * ipguard.inc: the service now starts when there is anything to guard. The
+    condition also tested $ipguard['enable'], a variable left over from the
+    preceding foreach -- so whether the service ran depended on the last entry
+    in the list rather than on any of them.
+
+  * ipguard.inc: the deinstall command passed the result of glob() to
+    unlink_if_exists(), which globs its argument itself -- so pfSense's own
+    glob() received an array and threw under PHP 8, leaving the package's
+    config files behind when it was removed.
+
+  * ipguard.inc: removed a duplicated file_put_contents that wrote the same
+    file twice, and the pfSense 2.2 PBI symlink workaround. PBI was retired
+    with pfSense 2.3 in 2016 and /usr/pbi does not exist on any supported
+    release.
+
+  * Packaging: built and installed as a real pfSense-pkg-IPguard, so it appears
+    in and can be removed from System > Package Manager. See docs/PACKAGING.md.

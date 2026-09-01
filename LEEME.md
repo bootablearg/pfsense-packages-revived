@@ -28,6 +28,7 @@ interfaz a las APIs actuales de PHP y pfSense, e instalar los binarios desde el
 | **[sarg](sarg/)** | Reportes detallados de navegación de Squid por usuario, sitio y fecha. | Instala y se registra en CE 2.9.0, GUI revisada; faltan reportes con tráfico real |
 | **[squidanalyzer](squidanalyzer/)** | Reportes de Squid más livianos, orientados a gráficos. | Instala y se registra en CE 2.9.0, GUI revisada; faltan reportes con tráfico real |
 | **[speedtest](speedtest/)** | Mide el ancho de banda desde el propio firewall, eligiendo la dirección de origen. | Verificado en CE 2.9.0: corre una medición real y la muestra |
+| **[ipguard](ipguard/)** | Mantiene fuera del segmento a los equipos que no están en una lista de pares MAC/IP permitidos. **Funciona haciendo ARP spoofing — lee su README antes.** | Instala y se registra en CE 2.9.0; **nunca custodió un segmento de verdad** |
 | **[postfix](postfix/)** | Pasarela y reenviador de correo (SMTP, antispam, relay). | Instala y se registra en CE 2.9.0, GUI revisada; **no pasó ni un mail por él** |
 | **[mailscanner](mailscanner/)** | Filtrado de correo con SpamAssassin y ClamAV. Necesita un MTA (postfix). | Instala y se registra en CE 2.9.0; **no pasó ni un mail por él** |
 
@@ -82,6 +83,7 @@ de autores distintos con términos distintos:
 | [mailscanner](mailscanner/LICENSE) | Apache-2.0 | © 2011-2019 Marcello Coutinho |
 | [wpad](wpad/LICENSE) | Apache-2.0 | © 2017-2025 Marcello Coutinho |
 | [speedtest](speedtest/LICENSE) | Apache-2.0 + BSD 2-Clause | © 2019 Marcello Coutinho, © 2015 ESF LLC, © 2004-2018 Netgate |
+| [ipguard](ipguard/LICENSE) | BSD 2-Clause | © 2012-2017 Marcello Coutinho, © 2015 ESF, LLC |
 
 Los avisos de copyright originales se conservan tal como esas licencias lo
 exigen. Si bifurcás este repositorio, mantenelos.
